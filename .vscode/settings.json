@@ -1,0 +1,4 @@
+{
+    "dbt.dbtPythonPathOverride": "./venv/Scripts/python.exe",
+    "dbt.deferConfigPerProject": {}
+}
