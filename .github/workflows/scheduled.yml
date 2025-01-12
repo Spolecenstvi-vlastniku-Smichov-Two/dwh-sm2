@@ -33,4 +33,11 @@ jobs:
             echo "SM House Number: $sm_house_number"
             date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
             echo "Date: $date"
+            if [[ ${#sm_house_number} -eq 2 ]]; then
+              mv "$file" "./latest/sm${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv"
+            else
+              echo "Skipping renaming $file as SM house number does not have exactly two characters."
+            fi
           done
+      
+      - run: ls -l ./latest/
