@@ -23,17 +23,12 @@ jobs:
         
       - run: rclone copy sm2drive:Vzduchotechnika/Latest/2.csv ./
 
-      - name: Check first line of the file
+      - name: Print Number of the SM House
         run: |
-          first_line=$(head -n 1 ./2.csv)
-          if [[ "$first_line" == *"VZT 02"* ]]; then
-            echo "String 'VZT 02' found in the first line."
-          else
-            echo "String 'VZT 02' not found in the first line."
-            exit 1
-          fi
+          vzt=$(head -n 1 ./2.csv | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
+          echo "Number of the SM House: $vzt"
 
-      - name: Print date from the last non-empty line starting with a date
+      - name: Print date 
         run: |
           date=$(tail ./2.csv | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4}')
-          echo "Date from the last non-empty line: $date"
+          echo "Date: $date"
