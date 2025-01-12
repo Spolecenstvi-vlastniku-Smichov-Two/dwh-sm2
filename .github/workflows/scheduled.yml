@@ -22,3 +22,13 @@ jobs:
           service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }}
         
       - run: rclone copy sm2drive:Vzduchotechnika/Latest/2.csv ./2.csv
+
+      - name: Check first line of the file
+        run: |
+          first_line=$(head -n 1 ./2.csv)
+          if [[ "$first_line" == *"VZT 02"* ]]; then
+            echo "String 'VZT 02' found in the first line."
+          else
+            echo "String 'VZT 02' not found in the first line."
+            exit 1
+          fi
