@@ -21,14 +21,16 @@ jobs:
           service_account_filename: service-account-file.json
           service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }}
         
-      - run: rclone copy sm2drive:Vzduchotechnika/Latest/2.csv ./
+      - run: rclone copy sm2drive:Vzduchotechnika/Latest/ ./latest/
+
+      - run: ls -l ./latest/
 
       - name: Print Number of the SM House
         run: |
-          vzt=$(head -n 1 ./2.csv | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
+          vzt=$(head -n 1 ./latest/2.csv | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
           echo "Number of the SM House: $vzt"
 
-      - name: Print date 
+      - name: Print temperature max datedate 
         run: |
-          date=$(tail ./2.csv | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}')
+          date=$(tail ./latest/2.csv | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}')
           echo "Date: $date"
