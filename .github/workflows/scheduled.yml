@@ -21,7 +21,7 @@ jobs:
           service_account_filename: service-account-file.json
           service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }}
         
-      - run: rclone copy sm2drive:Vzduchotechnika/Latest/2.csv ./2.csv
+      - run: rclone copy sm2drive:Vzduchotechnika/Latest/2.csv ./
 
       - name: Check first line of the file
         run: |
