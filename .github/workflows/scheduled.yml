@@ -32,3 +32,9 @@ jobs:
             echo "String 'VZT 02' not found in the first line."
             exit 1
           fi
+
+      - name: Print date from the last line
+        run: |
+          last_line=$(tail -n 1 ./2.csv)
+          date=$(echo $last_line | grep -oE '[0-9]{2}-[0-9]{2}-[0-9]{4}')
+          echo "Date from the last line: $date"
