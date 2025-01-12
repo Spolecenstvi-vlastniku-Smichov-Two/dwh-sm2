@@ -30,5 +30,5 @@ jobs:
 
       - name: Print date 
         run: |
-          date=$(tail ./2.csv | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4}')
+          date=$(tail ./2.csv | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}')
           echo "Date: $date"
