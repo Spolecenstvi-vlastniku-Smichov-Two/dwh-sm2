@@ -31,6 +31,6 @@ jobs:
             echo "Processing $file"
             sm_house_number=$(head -n 1 "$file" | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
             echo "SM House Number: $sm_house_number"
-            date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3.\2.\1/')
+            date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
             echo "Date: $date"
           done
