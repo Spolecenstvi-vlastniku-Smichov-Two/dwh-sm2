@@ -1,0 +1,24 @@
+# https://github.com/AnimMouse/setup-rclone
+name: scheduled
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  scheduled:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Rclone
+        uses: AnimMouse/setup-rclone@v1
+        with:
+          rclone_config: ${{ secrets.RCLONE_CONFIG }}
+        
+      - name: Add Rclone service account file
+        uses: AnimMouse/setup-rclone/service-account-file@v1
+        with:
+          service_account_filename: service-account-file.json
+          service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }}
+        
+      - run: rclone copy sm2drive:Vzduchotechnika/Latest/2.csv ./2.csv

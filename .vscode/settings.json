@@ -1,4 +1,6 @@
 {
-    "dbt.dbtPythonPathOverride": "./venv/Scripts/python.exe",
-    "dbt.deferConfigPerProject": {}
+    "terminal.integrated.defaultProfile.windows": "Git Bash",
+     "python.defaultInterpreterPath": "~/OneDrive/Desktop/Git/venv/Scripts/python.exe",
+     "terminal.integrated.cwd": "./dwh-sm2"
+
 }
