@@ -25,12 +25,12 @@ jobs:
 
       - run: ls -l ./latest/
 
-      - name: Print Number of the SM House
+      - name: Iterate over files and extract SM house number and date
         run: |
-          vzt=$(head -n 1 ./latest/2.csv | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
-          echo "Number of the SM House: $vzt"
-
-      - name: Print temperature max datedate 
-        run: |
-          date=$(tail ./latest/2.csv | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}')
-          echo "Date: $date"
+          for file in ./latest/*; do
+            echo "Processing $file"
+            sm_house_number=$(head -n 1 "$file" | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
+            echo "SM House Number: $sm_house_number"
+            date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}')
+            echo "Date: $date"
+          done
