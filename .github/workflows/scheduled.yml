@@ -36,7 +36,7 @@ jobs:
             if [[ ${#sm_house_number} -eq 2 ]]; then
               mv -f "$file" "./latest/sm${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv" ||:
             else
-              echo "Skipping renaming $file as SM house number does not have exactly two characters."
+              echo "Skipping renaming $file as SM house number does not have exactly two chars."
             fi
           done
       
