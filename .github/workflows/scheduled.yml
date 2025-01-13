@@ -63,7 +63,7 @@ jobs:
                   for Item in 'Date' 'venkov' 'sani' 'odvod' 'privod' 'vyfuk' ;
                     do
                       if [[ $i == *"$Item"* ]]; then
-                        $newfileheader="$newfileheader$i$separator;"
+                        $newfileheader="$newfileheader$i$separator"
                       fi
                     done
                 done
