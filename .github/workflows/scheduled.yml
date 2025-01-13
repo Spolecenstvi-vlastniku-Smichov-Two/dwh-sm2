@@ -62,7 +62,7 @@ jobs:
                   for Item in 'Date' 'venkov' 'sani' 'odvod' 'privod' 'vyfuk' ;
                     do
                       if [[ $i == *"$Item"* ]]; then
-                        $newfileheader+="$i";"
+                        $newfileheader+=$i";"
                       fi
                     done
                 done
@@ -70,3 +70,4 @@ jobs:
             done
 
       - run: ls -l ./final/
+
