@@ -56,15 +56,18 @@ jobs:
             do
               fileheader=$(head -n 1 "$file")
               IFS=';' read -ra my_array <<< "$fileheader"
+              newfileheader=''
+              separator=';'
               for i in "${my_array[@]}"
                 do
                   for Item in 'Date' 'venkov' 'sani' 'odvod' 'privod' 'vyfuk' ;
                     do
                       if [[ $i == *"$Item"* ]]; then
-                        echo "$Item"
+                        $newfileheader="$newfileheader$i$separator;"
                       fi
                     done
                 done
+              echo ${newfileheader:0:-1}
             done
-          
+
       - run: ls -l ./final/
