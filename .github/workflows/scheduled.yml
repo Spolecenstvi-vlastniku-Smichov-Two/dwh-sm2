@@ -68,6 +68,7 @@ jobs:
                 done
               sed -i '1 s/^.*$/${newfileheader:0:-1}/' "$file"
             done
+            echo $(head -n 1 "$file")
 
       - run: ls -l ./final/
 
