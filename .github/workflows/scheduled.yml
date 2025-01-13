@@ -54,7 +54,17 @@ jobs:
         run: |
           for file in ./final/*; 
             do
-              echo $(head -n 1 "$file")
+              fileheader=$(head -n 1 "$file")
+              IFS=';' read -ra my_array <<< "$fileheader"
+              for i in "${my_array[@]}"
+                do
+                  for Item in 'Date' 'venkov' 'sani' 'odvod' 'privod' 'vyfuk' ;
+                    do
+                      if [[ $i == *"$Item"* ]]; then
+                        echo "$Item"
+                      fi
+                    done
+                done
             done
           
       - run: ls -l ./final/
