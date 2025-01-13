@@ -49,5 +49,12 @@ jobs:
             do
               rclone copy ./latest/$(echo "$sorted_files" | grep "$Item" | tail -n 1) ./final/"$Item".csv
             done
-
+            
+      - name: Iterate over files and correct the file headers
+        run: |
+          for file in ./final/*; 
+            do
+              echo $(head -n 1 "$file")
+            done
+          
       - run: ls -l ./final/
