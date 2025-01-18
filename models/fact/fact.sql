@@ -35,6 +35,8 @@ final as (
         data_key, 
         cast(replace(data_value,',','.') as decimal) as data_value 
     from unpivoted
+    union
+    {{ sources('csv_google','fact') }}
 )
 
 select * from final
