@@ -147,4 +147,5 @@ jobs:
       - name: 'Generate dbt docs'
         uses: praneeth527/generate-dbt-docs@v1
         with:
+          projects_dir: /home/runner/work/dwh-sm2/
           docs_dir: ${{ github.workspace }}/docs
