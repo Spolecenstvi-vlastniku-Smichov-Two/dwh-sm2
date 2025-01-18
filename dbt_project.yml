@@ -19,17 +19,6 @@ clean-targets:
 
 require-dbt-version: [">=1.0.0", "<2.0.0"]
 
-seeds: 
-  dwh_sm2:
-    +delimiter: ";"
-    +column_types:
-      Date: text
-      venkov: text
-      sani: text
-      odvod: text
-      privod: text
-      vyfuk: text
-
 models:
   dwh_sm2:
     fact:
