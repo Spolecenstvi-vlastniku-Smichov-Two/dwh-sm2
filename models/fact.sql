@@ -27,6 +27,14 @@ unpivoted as (
     select Date as time, location, 'temp_fresh' as data_key, privod as data_value from source
     union all
     select Date as time, location, 'temp_waste' as data_key, vyfuk as data_value from source
+),
+final as (
+    select 
+        strptime(time, '%d.%m.%Y %H:%M:%S') as time, 
+        location, 
+        data_key, 
+        cast(replace(data_value,',','.') as decimal) as data_value 
+    from unpivoted
 )
 
-select * from unpivoted
+select * from final
