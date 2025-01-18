@@ -1,1 +1,1 @@
-select location,min(time),max(time) from {{ref('fact')}} group by location
+select location,min(time),max(time) from {{ref('fact')}} group by location order by location;
