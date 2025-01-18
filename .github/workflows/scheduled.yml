@@ -46,7 +46,7 @@ jobs:
           # git fetch origin main:main
           # git diff main --name-only --diff-filter=d | egrep '^models/.*sql$$' | xargs -r sqlfluff lint
 
-      - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gridev/
+      - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
 
       - run: ls -l ./gdrive/
 
