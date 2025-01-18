@@ -142,11 +142,4 @@ jobs:
           name: dbt-target
           path: target
 
-      - name: Download Dbt Artifacts
-        uses: actions/download-artifact@master
-        with:
-          name: dbt-target
-
-      - run: ls -l ./
-
       - run: rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
