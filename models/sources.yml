@@ -9,6 +9,7 @@ sources:
 
     tables:
       - name: fact_original
+        freshness:
         config:
           external_location: "read_csv('./gdrive/fact.csv')"
       - name: sm2_01
