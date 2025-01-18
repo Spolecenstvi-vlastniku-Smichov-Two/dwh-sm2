@@ -126,7 +126,7 @@ jobs:
 
       - name: Run dbt build
         id: run_dbt_build
-        run: dbt build --select state:modified+ result:error+ source_status:fresher+ --defer --state prior
+        run: dbt build --select state:modified+ result:error+ source_status:fresher+ --state prior
         continue-on-error: true
 
       - name: Full dbt build 
