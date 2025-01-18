@@ -17,7 +17,6 @@ sources:
 models:
   - name: fact
     description: the fact table
-
     columns:
       - name: time
         description: This is a date time
