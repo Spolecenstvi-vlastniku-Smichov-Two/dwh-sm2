@@ -5,7 +5,7 @@ sources:
     loaded_at_field: "CAST(Date AS TIMESTAMP)"
 
     freshness:
-      warn_after: {count: 50, period: day}
+      warn_after: {count: 365, period: day}
 
     tables:
       - name: fact_original
