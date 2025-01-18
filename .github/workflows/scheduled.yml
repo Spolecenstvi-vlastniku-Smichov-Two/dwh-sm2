@@ -140,3 +140,5 @@ jobs:
         uses: actions/download-artifact@master
         with:
           name: dbt-target
+
+      - run: ls -l ./
