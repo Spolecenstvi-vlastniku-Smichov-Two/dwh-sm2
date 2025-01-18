@@ -23,7 +23,12 @@ seeds:
   dwh_sm2:
     +delimiter: ";"
     +column_types:
-      "*": text
+      Date: text
+      venkov: text
+      sani: text
+      odvod: text
+      privod: text
+      vyfuk: text
 
 models:
   dwh_sm2:
