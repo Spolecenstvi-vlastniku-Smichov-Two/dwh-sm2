@@ -32,4 +32,6 @@ seeds:
 
 models:
   dwh_sm2:
-    materialized: table
+    materialized: external
+    +location: "./fact.csv"
+    format: csv
