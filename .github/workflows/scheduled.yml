@@ -77,7 +77,7 @@ jobs:
             
       - name: Iterate over files and correct the file headers
         run: |
-          for file in ./final/*; 
+          for file in ./seeds/*; 
             do
               fileheader=$(head -n 1 "$file")
               IFS=';' read -ra my_array <<< "$fileheader"
