@@ -14,3 +14,5 @@ env/
 *.csv
 *.zip
 images/
+etc/
+prior/
