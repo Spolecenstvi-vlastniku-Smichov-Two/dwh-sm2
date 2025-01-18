@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: csv_google
     tables:
-      - name: fact
+      - name: fact_original
         external:
           location: "./gdrive/fact.csv"
           format: "csv"
