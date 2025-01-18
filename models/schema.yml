@@ -4,14 +4,8 @@ sources:
   - name: csv_google
     tables:
       - name: fact_original
-        external:
-          location: "gdrive/fact.csv"
-          format: "csv"
-          options:
-            header: true
-            delimiter: ","
-
-
+        config:
+          external_location: "read_csv('./gdrive/fact.csv')
 
   - name: duckdb
     schema: main  
