@@ -12,3 +12,5 @@ env/
 **/*.duckdb.wal
 *.sh
 *.csv
+*.zip
+images/
