@@ -91,7 +91,7 @@ jobs:
                       fi
                     done
                 done
-              sed -i "1 s/^.*$/${newfileheader}/" "$file"
+              sed -i "1 s/^.*$/${newfileheader}end/" "$file"
             done
             echo $(head -n 1 "$file")
 
