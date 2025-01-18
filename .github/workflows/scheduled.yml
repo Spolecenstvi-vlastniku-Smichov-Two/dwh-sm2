@@ -141,4 +141,4 @@ jobs:
         with:
           name: dbt-target
 
-      - run: ls -l ./
+      - run: rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
