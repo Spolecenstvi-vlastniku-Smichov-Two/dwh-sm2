@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@master
-        
+
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
         with:
@@ -96,7 +96,6 @@ jobs:
             echo $(head -n 1 "$file")
 
       - run: ls -l ./seeds/
-
 
       - name: Install dependencies
         run: |
