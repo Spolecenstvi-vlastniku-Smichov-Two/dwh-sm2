@@ -2,9 +2,10 @@ version: 2
 
 sources:
   - name: csv_google
-  
-    freshness:
     loaded_at_field: Date
+
+    freshness:
+      warn_after: {count: 60, period: day}
 
     tables:
       - name: fact_original
