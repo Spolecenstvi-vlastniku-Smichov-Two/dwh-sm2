@@ -2,6 +2,10 @@ version: 2
 
 sources:
   - name: csv_google
+  
+    freshness:
+    loaded_at_field: Date
+
     tables:
       - name: fact_original
         config:
