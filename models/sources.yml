@@ -5,7 +5,7 @@ sources:
     loaded_at_field: Date
 
     freshness:
-      warn_after: {count: 60, period: day}
+      warn_after: {count: 50, period: day}
 
     tables:
       - name: fact_original
