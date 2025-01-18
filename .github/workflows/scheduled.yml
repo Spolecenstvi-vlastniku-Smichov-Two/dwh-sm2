@@ -34,7 +34,7 @@ jobs:
             date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
             echo "Date: $date"
             if [[ ${#sm_house_number} -eq 2 ]]; then
-              mv -f "$file" "./latest/sm${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv" ||:
+              mv -f "$file" "./latest/sm2_${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv" ||:
             else
               echo "Skipping renaming $file as SM house number does not have exactly two chars."
             fi
@@ -45,7 +45,7 @@ jobs:
       - name: Copy latest files to final
         run: |
           sorted_files=$(ls ./latest | sort)
-          for Item in 'sm01' 'sm02' 'sm03' 'sm04' 'sm05' 'sm06' 'sm07' 'sm08' 'sm09' ;
+          for Item in 'sm2_01' 'sm2_02' 'sm2_03' 'sm2_04' 'sm2_05' 'sm2_06' 'sm2_07' 'sm2_08' 'sm2_09' ;
             do
               rclone copyto ./latest/$(echo "$sorted_files" | grep "$Item" | tail -n 1) ./final/"$Item".csv
             done
