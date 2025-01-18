@@ -2,7 +2,7 @@ version: 2
 
 sources:
   - name: csv_google
-    loaded_at_field: Date
+    loaded_at_field: max(Date)
 
     freshness:
       warn_after: {count: 50, period: day}
