@@ -5,7 +5,7 @@ sources:
     tables:
       - name: fact_original
         config:
-          external_location: "read_csv('./gdrive/fact.csv')
+          external_location: "read_csv('./gdrive/fact.csv')"
 
   - name: duckdb
     schema: main  
