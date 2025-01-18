@@ -1,7 +1,19 @@
 version: 2
 
 sources:
-  - name: google
+  - name: csv_google
+    tables:
+      - name: fact
+        external:
+          location: "./gdrive/fact.csv"
+          format: "csv"
+          options:
+            header: true
+            delimiter: ","
+
+
+
+  - name: duckdb
     schema: main  
     tables:
       - name: sm2_01
