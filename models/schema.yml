@@ -1,7 +1,8 @@
 version: 2
 
 sources:
-  - name: google 
+  - name: google
+    schema: main  
     tables:
       - name: sm2_01
       - name: sm2_02
