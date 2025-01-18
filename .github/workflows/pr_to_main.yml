@@ -36,6 +36,8 @@ jobs:
           # git fetch origin main:main
           # git diff main --name-only --diff-filter=d | egrep '^models/.*sql$$' | xargs -r sqlfluff lint
 
+      - run: ls -l ./
+
       - name: Install dependencies
         run: |
           pip install dbt-duckdb
