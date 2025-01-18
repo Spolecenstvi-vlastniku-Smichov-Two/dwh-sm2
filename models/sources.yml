@@ -8,28 +8,28 @@ sources:
           external_location: "read_csv('./gdrive/fact.csv')"
       - name: sm2_01
         config:
-          external_location: "read_csv('./gdrive/sm2_01.csv'})"
+          external_location: "read_csv('./gdrive/sm2_01.csv')"
       - name: sm2_02
         config:
-          external_location: "read_csv('./gdrive/sm2_02.csv'})"
+          external_location: "read_csv('./gdrive/sm2_02.csv')"
       - name: sm2_03
         config:
-          external_location: "read_csv('./gdrive/sm2_03.csv'})"
+          external_location: "read_csv('./gdrive/sm2_03.csv')"
       - name: sm2_04
         config:
-          external_location: "read_csv('./gdrive/sm2_04.csv'})"
+          external_location: "read_csv('./gdrive/sm2_04.csv')"
       - name: sm2_05
         config:
-          external_location: "read_csv('./gdrive/sm2_05.csv'})"
+          external_location: "read_csv('./gdrive/sm2_05.csv')"
       - name: sm2_06
         config:
-          external_location: "read_csv('./gdrive/sm2_06.csv'})"
+          external_location: "read_csv('./gdrive/sm2_06.csv')"
       - name: sm2_07
         config:
-          external_location: "read_csv('./gdrive/sm2_07.csv'})"
+          external_location: "read_csv('./gdrive/sm2_07.csv')"
       - name: sm2_08
         config:
-          external_location: "read_csv('./gdrive/sm2_08.csv'})"
+          external_location: "read_csv('./gdrive/sm2_08.csv')"
       - name: sm2_09
         config:
-          external_location: "read_csv('./gdrive/sm2_09.csv'})"
+          external_location: "read_csv('./gdrive/sm2_09.csv')"
