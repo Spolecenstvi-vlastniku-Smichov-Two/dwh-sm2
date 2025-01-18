@@ -30,7 +30,7 @@ unpivoted as (
 ),
 final as (
     select 
-        strptime(time, '%d.%m.%Y %H:%M:%S') as time, 
+        time --strptime(time, '%d.%m.%Y %H:%M:%S') as time, 
         location, 
         data_key, 
         cast(replace(data_value,',','.') as decimal) as data_value 
