@@ -5,7 +5,7 @@ sources:
     tables:
       - name: fact_original
         external:
-          location: "./gdrive/fact.csv"
+          location: "gdrive/fact.csv"
           format: "csv"
           options:
             header: true
