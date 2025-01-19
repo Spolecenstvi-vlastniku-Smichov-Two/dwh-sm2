@@ -159,6 +159,8 @@ jobs:
           projects_dir: ../.
           docs_dir: ${{ github.workspace }}/docs
 
+      - run: ls -l ${{ github.workspace }}/docs
+
       - name: Commit files
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
