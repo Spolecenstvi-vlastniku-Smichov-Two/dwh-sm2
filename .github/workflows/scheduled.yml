@@ -163,8 +163,6 @@ jobs:
 
       - run: ls -l ./
 
-      - run: rm -rf .git
-
       - name: Commit files
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -172,6 +170,8 @@ jobs:
           git add --all :/
           git commit -m "Add docs"
         continue-on-error: true
+
+      - run: rm -rf .git
 
       - name: Push changes
         uses: ad-m/github-push-action@master
