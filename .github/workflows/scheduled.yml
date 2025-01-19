@@ -61,12 +61,11 @@ jobs:
               echo "Processing $file"
               sm_house_number=$(head -n 1 "$file" | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
               echo "SM House Number: $sm_house_number"
-              ex_date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
-              echo "Date: $ex_date"
+              date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
+              echo "Date: $date"
               if [[ ${#sm_house_number} -eq 2 ]]; then
-                ex_z_date = ${ex_date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}
-                mv -f "$file" "./latest/sm2_${sm_house_number}_${ex_z_date}.csv" ||:
-                echo "EXZDATE=$ex_z_date" >> $env:GITHUB_ENV
+                mv -f "$file" "./latest/sm2_${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv" ||:
+                echo "EXTDATE=${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}" >> $env:GITHUB_ENV
               else
                 echo "Skipping renaming $file as SM house number does not have exactly two chars."
               fi
@@ -177,6 +176,6 @@ jobs:
 
       - run: |
           if [ -d "./latest" ]; then
-            rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/"${{ env.EXZDATE }}"/
+            rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/"${{ env.EXTDATE }}"/
             rclone purge sm2drive:Vzduchotechnika/Latest && rclone mkdir sm2drive:Vzduchotechnika/Latest
           fi
