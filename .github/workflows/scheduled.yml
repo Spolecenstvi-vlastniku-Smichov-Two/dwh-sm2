@@ -122,8 +122,6 @@ jobs:
             const script = require('./scripts/download-previous-artifact.js')
             await script({github, context, core})    
 
-      - run: ls -l ./prior/
-
       - name: Run dbt source freshness
         run: dbt source freshness
 
