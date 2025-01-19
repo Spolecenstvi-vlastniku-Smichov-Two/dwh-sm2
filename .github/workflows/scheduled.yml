@@ -176,6 +176,6 @@ jobs:
 
       - run: |
           if [ -d "./latest" ]; then
-            rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/"${{ env.extdate }}"/
+            rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/${{ env.extdate }}/
             rclone purge sm2drive:Vzduchotechnika/Latest && rclone mkdir sm2drive:Vzduchotechnika/Latest
           fi
