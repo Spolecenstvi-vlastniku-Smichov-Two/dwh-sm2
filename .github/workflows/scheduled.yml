@@ -147,7 +147,10 @@ jobs:
         with:
           name: dbt-target
 
-      - run: rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
+      - run: |
+          if [[ -f "./fact.csv" ]]; then
+              rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
+          fi
 
       - name: 'Generate dbt docs'
         uses: praneeth527/generate-dbt-docs@v1
