@@ -1,4 +1,3 @@
-# https://github.com/AnimMouse/setup-rclone
 name: scheduled
 
 on:
@@ -113,7 +112,7 @@ jobs:
         uses: actions/github-script@master
         continue-on-error: true
         env:
-          WORKFLOW_FILENAME: pr_to_main.yml
+          WORKFLOW_FILENAME: scheduled.yml
           ARTIFACT_NAME: dbt-target
           ARTIFACT_FILENAME: dbt-target.zip
           UNZIP_DIR: prior
