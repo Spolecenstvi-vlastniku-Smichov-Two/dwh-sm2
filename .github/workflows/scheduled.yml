@@ -65,7 +65,7 @@ jobs:
               echo "Date: $date"
               if [[ ${#sm_house_number} -eq 2 ]]; then
                 mv -f "$file" "./latest/sm2_${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv" ||:
-                echo "EXTDATE=${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}" >> $env:GITHUB_ENV
+                echo "extdate=${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}" >> $GITHUB_ENV
               else
                 echo "Skipping renaming $file as SM house number does not have exactly two chars."
               fi
@@ -176,6 +176,6 @@ jobs:
 
       - run: |
           if [ -d "./latest" ]; then
-            rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/"${{ env.EXTDATE }}"/
+            rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/"${{ env.extdate }}"/
             rclone purge sm2drive:Vzduchotechnika/Latest && rclone mkdir sm2drive:Vzduchotechnika/Latest
           fi
