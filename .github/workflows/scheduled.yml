@@ -4,7 +4,10 @@ name: scheduled
 on:
   push:
     branches:
-      - develop
+      - main
+  schedule:
+    - cron: '0 0 * * *'
+    
 env:
   DBT_PROFILES_DIR: ./
 
