@@ -54,8 +54,6 @@ jobs:
 
       - run: rclone copy sm2drive:Vzduchotechnika/Latest/ ./latest/
 
-      - run: ls -l ./latest/
-
       - name: Iterate over files and extract SM house number and date
         run: |
           for file in ./latest/*; do
