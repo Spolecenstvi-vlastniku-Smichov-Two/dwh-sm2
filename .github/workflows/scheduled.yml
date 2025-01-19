@@ -5,11 +5,25 @@ on:
   push:
     branches:
       - main
+  schedule:
+    - cron: '0 0 * * *'
+    
+env:
+  DBT_PROFILES_DIR: ./
 
 jobs:
   scheduled:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      actions: read
+      packages: write
+
     steps:
+      - name: Check out
+        uses: actions/checkout@master
+
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
         with:
@@ -19,16 +33,135 @@ jobs:
         uses: AnimMouse/setup-rclone/service-account-file@v1
         with:
           service_account_filename: service-account-file.json
-          service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }}
-        
-      - run: rclone copy sm2drive:Vzduchotechnika/Latest/2.csv ./
+          service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }} 
 
-      - name: Check first line of the file
+      - name: DuckDB setup
+        uses: opt-nc/setup-duckdb-action@main
+
+      - uses: actions/setup-python@master
+
+      - name: Lint with sqlfluff
         run: |
-          first_line=$(head -n 1 ./2.csv)
-          if [[ "$first_line" == *"VZT 02"* ]]; then
-            echo "String 'VZT 02' found in the first line."
-          else
-            echo "String 'VZT 02' not found in the first line."
-            exit 1
-          fi
+          pip install sqlfluff
+          sqlfluff lint -r L020,L021,L049 --dialect ansi -v models/
+    
+          # Linting only modified models
+          # git fetch origin main:main
+          # git diff main --name-only --diff-filter=d | egrep '^models/.*sql$$' | xargs -r sqlfluff lint
+
+      - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
+
+      - run: ls -l ./gdrive/
+
+      - run: rclone copy sm2drive:Vzduchotechnika/Latest/ ./latest/
+
+      - run: ls -l ./latest/
+
+      - name: Iterate over files and extract SM house number and date
+        run: |
+          for file in ./latest/*; do
+            echo "Processing $file"
+            sm_house_number=$(head -n 1 "$file" | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
+            echo "SM House Number: $sm_house_number"
+            date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
+            echo "Date: $date"
+            if [[ ${#sm_house_number} -eq 2 ]]; then
+              mv -f "$file" "./latest/sm2_${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv" ||:
+            else
+              echo "Skipping renaming $file as SM house number does not have exactly two chars."
+            fi
+          done
+      
+      - run: ls -l ./latest/
+
+      - name: Copy latest files to final
+        run: |
+          sorted_files=$(ls ./latest | sort)
+          for Item in 'sm2_01' 'sm2_02' 'sm2_03' 'sm2_04' 'sm2_05' 'sm2_06' 'sm2_07' 'sm2_08' 'sm2_09' ;
+            do
+              rclone copyto ./latest/$(echo "$sorted_files" | grep "$Item" | tail -n 1) ./gdrive/"$Item".csv
+            done
+            
+      - name: Iterate over files and correct the file headers
+        run: |
+          for file in ./gdrive/*; 
+            do
+              fileheader=$(head -n 1 "$file")
+              IFS=';' read -ra my_array <<< "$fileheader"
+              newfileheader=""
+              for i in "${my_array[@]}"
+                do
+                  for Item in 'Date' 'venkov' 'sani' 'odvod' 'privod' 'vyfuk' ;
+                    do
+                      if [[ $i == *"$Item"* ]]; then
+                        newfileheader+="$Item;"
+                      fi
+                    done
+                done
+              sed -i "1 s/^.*$/${newfileheader}end/" "$file"
+            done
+            echo $(head -n 1 "$file")
+
+      - run: ls -l ./gdrive/
+
+      - name: Install dependencies
+        run: |
+          pip install dbt-duckdb
+          dbt deps
+      
+      - name: Download Prior Dbt Artifacts
+        uses: actions/github-script@master
+        continue-on-error: true
+        env:
+          WORKFLOW_FILENAME: pr_to_main.yml
+          ARTIFACT_NAME: dbt-target
+          ARTIFACT_FILENAME: dbt-target.zip
+          UNZIP_DIR: prior
+        with:
+          script: |
+            const script = require('./scripts/download-previous-artifact.js')
+            await script({github, context, core})    
+
+      - run: ls -l ./prior/
+
+      - name: Run dbt source freshness
+        run: dbt source freshness
+
+      - name: Run dbt build
+        id: run_dbt_build
+        run: dbt build --select result:error+ source_status:fresher+ --defer --state prior
+        continue-on-error: true
+
+      - name: Full dbt build 
+        if: steps.run_dbt_build.outcome != 'success'
+        run: dbt build
+
+      - name: Run docs generate
+        run: dbt docs generate
+
+      - name: Upload Dbt Artifacts
+        uses: actions/upload-artifact@master
+        with:
+          name: dbt-target
+          path: target
+
+      - run: rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
+
+      - name: 'Generate dbt docs'
+        uses: praneeth527/generate-dbt-docs@v1
+        with:
+          projects_dir: ../.
+          docs_dir: ${{ github.workspace }}/docs
+
+      - name: Commit files
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .
+          git commit -a -m "Add docs"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}

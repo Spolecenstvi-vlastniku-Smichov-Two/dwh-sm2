@@ -1,5 +1,6 @@
 
 target/
+gdrive/
 dbt_packages/
 dbt_modules/
 logs/
@@ -9,3 +10,9 @@ venv/
 env/
 **/*.duckdb
 **/*.duckdb.wal
+*.sh
+*.csv
+*.zip
+images/
+etc/
+prior/
