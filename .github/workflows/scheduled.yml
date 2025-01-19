@@ -169,3 +169,5 @@ jobs:
         continue-on-error: true
 
       - run: rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/"$(date +"%Y_%m_%d_%I_%M_%p")"/
+
+      - run: rclone purge sm2drive:Vzduchotechnika/Latest && rclone mkdir sm2drive:Vzduchotechnika/Latest
