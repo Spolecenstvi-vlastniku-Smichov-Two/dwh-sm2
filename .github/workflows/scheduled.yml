@@ -79,6 +79,11 @@ jobs:
               do
                 rclone copyto ./latest/$(echo "$sorted_files" | grep "$Item" | tail -n 1) ./gdrive/"$Item".csv
               done
+          else
+            for Item in 'sm2_01' 'sm2_02' 'sm2_03' 'sm2_04' 'sm2_05' 'sm2_06' 'sm2_07' 'sm2_08' 'sm2_09' ;
+              do
+                echo "Date;venkov;sani;odvod;privod;vyfuk;end" >  ./gdrive/"$Item".csv
+              done
           fi
             
       - name: Iterate over files and correct the file headers
