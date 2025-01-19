@@ -23,3 +23,4 @@ tmp_docs/
 *.json
 *.msgpack
 *.gpickle
+latest/
