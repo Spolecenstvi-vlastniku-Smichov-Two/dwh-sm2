@@ -1,4 +1,4 @@
-name: scheduled
+name: refresh
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
   DBT_PROFILES_DIR: ./
 
 jobs:
-  scheduled:
+  refresh:
     runs-on: ubuntu-latest
 
     permissions:
@@ -118,7 +118,7 @@ jobs:
         uses: actions/github-script@master
         continue-on-error: true
         env:
-          WORKFLOW_FILENAME: scheduled.yml
+          WORKFLOW_FILENAME: refresh.yml
           ARTIFACT_NAME: dbt-target
           ARTIFACT_FILENAME: dbt-target.zip
           UNZIP_DIR: prior
@@ -185,4 +185,3 @@ jobs:
             rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/${{ env.extdate }}/
             rclone purge sm2drive:Vzduchotechnika/Latest && rclone mkdir sm2drive:Vzduchotechnika/Latest
           fi
-          
