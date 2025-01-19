@@ -16,3 +16,10 @@ env/
 images/
 etc/
 prior/
+compiled/
+run/
+tmp_docs/
+*.html
+*.json
+*.msgpack
+*.gpickle
