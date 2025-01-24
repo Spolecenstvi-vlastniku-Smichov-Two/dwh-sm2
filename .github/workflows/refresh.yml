@@ -153,6 +153,14 @@ jobs:
               rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
           fi
 
+      - name: Reinitialize git repository
+        run: |
+            git init
+            git remote add origin https://github.com/${{ github.repository }}
+            git fetch
+            git checkout ${{ github.ref }}
+        
+
       - name: 'Generate dbt docs'
         uses: praneeth527/generate-dbt-docs@v1
         with:
@@ -172,8 +180,6 @@ jobs:
           git add --all :/
           git commit -m "Add docs"
         continue-on-error: true
-
-      - run: rm -rf .git
 
       - name: Push changes
         uses: ad-m/github-push-action@master
