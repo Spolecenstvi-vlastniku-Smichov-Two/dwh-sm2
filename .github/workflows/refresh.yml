@@ -22,6 +22,17 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@master
+        with:
+          ref: main
+
+      - name: Reinitialize Git repository
+        run: |
+            rm -rf .git
+            git init
+            git remote add origin https://github.com/${{ github.repository }}
+            git fetch
+            git checkout main # Replace "main" with your branch
+        
 
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
@@ -152,14 +163,6 @@ jobs:
           if [[ -f "./fact.csv" ]]; then
               rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
           fi
-
-      - name: Reinitialize git repository
-        run: |
-            git init
-            git remote add origin https://github.com/${{ github.repository }}
-            git fetch
-            git checkout ${{ github.ref }}
-        
 
       - name: 'Generate dbt docs'
         uses: praneeth527/generate-dbt-docs@v1
