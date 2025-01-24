@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@master
         with:
           fetch-depth: 0
           ref: main 
@@ -165,13 +165,6 @@ jobs:
       - run: ls -l ${{ github.workspace }}/docs
 
       - run: git status
-
-      - name: Reset Git index
-        run: |
-          git reset --hard
-          git clean -fdx
-          git add --force --all
-          git status
 
       - name: Commit files
         run: |
