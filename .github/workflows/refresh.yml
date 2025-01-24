@@ -28,8 +28,6 @@ jobs:
             git fetch
             git checkout main
 
-
-
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
         with:
@@ -167,8 +165,6 @@ jobs:
           docs_dir: ${{ github.workspace }}/docs
 
       - run: ls -l ${{ github.workspace }}/docs
-
-      - run: tree ${{ github.workspace }} -L 2
 
       - run: git status
 
