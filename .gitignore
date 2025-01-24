@@ -24,3 +24,5 @@ tmp_docs/
 *.msgpack
 *.gpickle
 latest/
+
+!docs/**
