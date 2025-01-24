@@ -20,10 +20,15 @@ jobs:
       packages: write
 
     steps:
-      - name: Check out
-        uses: actions/checkout@v3
-        with:
-          ref: main
+      - name: Reinitialize Git repository
+        run: |
+            rm -rf .git
+            git init
+            git remote add origin https://github.com/${{ github.repository }}
+            git fetch
+            git checkout main
+
+
 
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
