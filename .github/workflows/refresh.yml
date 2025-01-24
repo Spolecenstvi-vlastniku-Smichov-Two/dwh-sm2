@@ -20,11 +20,6 @@ jobs:
       packages: write
 
     steps:
-      - name: Check out
-        uses: actions/checkout@master
-        with:
-          ref: main
-
       - name: Reinitialize Git repository
         run: |
             rm -rf .git
@@ -32,7 +27,12 @@ jobs:
             git remote add origin https://github.com/${{ github.repository }}
             git fetch
             git checkout main # Replace "main" with your branch
-        
+
+
+      - name: Check out
+        uses: actions/checkout@master
+        with:
+          ref: main
 
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
