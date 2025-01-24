@@ -166,6 +166,16 @@ jobs:
 
       - run: git status
 
+      - name: Check for conflicts
+        run: |
+          git fetch
+          git diff --name-only origin/main
+          git merge origin/main || echo "No merge conflicts"
+    
+      - run: find docs -type f
+
+      - run: git check-ignore -v docs/*
+
       - name: Commit files
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
