@@ -161,7 +161,7 @@ jobs:
 
       - run: ls -l ${{ github.workspace }}/docs
 
-      - run: ls -l ./
+      - run: tree ${{ github.workspace }} -L 2
 
       - run: git status
 
