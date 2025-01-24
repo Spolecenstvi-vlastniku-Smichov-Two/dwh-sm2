@@ -20,13 +20,11 @@ jobs:
       packages: write
 
     steps:
-      - name: Reinitialize Git repository
-        run: |
-            rm -rf .git
-            git init
-            git remote add origin https://github.com/${{ github.repository }}
-            git fetch
-            git checkout main
+      - name: Check out the repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: main 
 
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
@@ -167,6 +165,13 @@ jobs:
       - run: ls -l ${{ github.workspace }}/docs
 
       - run: git status
+
+      - name: Reset Git index
+        run: |
+          git reset --hard
+          git clean -fdx
+          git add --force --all
+          git status
 
       - name: Commit files
         run: |
