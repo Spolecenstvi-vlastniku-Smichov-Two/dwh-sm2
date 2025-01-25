@@ -52,7 +52,7 @@ jobs:
 
       - run: ls -l ./gdrive/
 
-      - run: rclone copy sm2drive:Vzduchotechnika/Latest/ ./latest/
+      - run: rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
 
       - name: Iterate over files and extract SM house number and date
         run: |
@@ -180,6 +180,6 @@ jobs:
 
       - run: |
           if [ -d "./latest" ]; then
-            rclone copyto sm2drive:Vzduchotechnika/Latest/ sm2drive:Vzduchotechnika/Archiv/${{ env.extdate }}/
-            rclone purge sm2drive:Vzduchotechnika/Latest && rclone mkdir sm2drive:Vzduchotechnika/Latest
+            rclone copyto sm2drive:Vzduchotechnika/Latest/Upload sm2drive:Vzduchotechnika/Archiv/${{ env.extdate }}/
+            rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
           fi
