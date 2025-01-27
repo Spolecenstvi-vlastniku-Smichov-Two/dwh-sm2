@@ -51,8 +51,8 @@ jobs:
               csvcut -c 1-"$nb_of_cols" "$file" -d ';' >  ./latest/tmp"$Item".csv
             done
           fi
-          Keys=$(echo -n $Keys | head -c -1)
-          Files=$(echo -n $Files | head -c -1)
+          Keys=${Keys::-1}
+          Files=${Files::-1}
           csvjoin -c "$Keys" --outer ${Files} > ./latest/merged.csv
           rclone copy ./latest/merged.csv sm2drive:Vzduchotechnika/Model/
 
