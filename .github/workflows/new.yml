@@ -38,12 +38,12 @@ jobs:
 
       - name: Iterate over files and extract valid data to new files
         run: |
-          Item = 0
+          Item=0
           if [ -d "./latest" ]; then
             for file in ./latest/*; do
-              Item = $Item + 1
+              Item=$((Item + 1))
               echo "Processing $file"
-              nb_of_cols = csvcut -n "$file" -d ';' | grep "[A-Za-a]" | wc -l
+              nb_of_cols=$(csvcut -n "$file" -d ';' | grep "[A-Za-a]" | wc -l)
               csvcut -c 1-"$nb_of_cols" "$file" -d ';' >  ./latest/tmp"$Item".csv
             done
           fi
