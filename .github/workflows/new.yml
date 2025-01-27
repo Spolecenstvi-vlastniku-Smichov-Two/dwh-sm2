@@ -1,0 +1,52 @@
+name: new
+
+on:
+  push:
+    branches:
+      - develop
+env:
+  DBT_PROFILES_DIR: ./
+
+jobs:
+  new:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      actions: read
+      packages: write
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@master
+
+      - name: Setup Rclone
+        uses: AnimMouse/setup-rclone@v1
+        with:
+          rclone_config: ${{ secrets.RCLONE_CONFIG }}
+        
+      - name: Add Rclone service account file
+        uses: AnimMouse/setup-rclone/service-account-file@v1
+        with:
+          service_account_filename: service-account-file.json
+          service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }} 
+
+      - run: rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
+
+      - name: Install csvkit
+        run: pip install csvkit
+
+      - name: Iterate over files and extract valid data to new files
+        run: |
+          Item = 0
+          if [ -d "./latest" ]; then
+            for file in ./latest/*; do
+              Item = Item + 1
+              echo "Processing $file"
+              nb_of_cols = csvcut -n "$file" -d ';' | grep "[A-Za-a]" | wc -l
+              csvcut -c 1-"$nb_of_cols" "$file" -d ';' >  ./latest/tmp"$Item".csv
+            done
+          fi
+
+      - run: ls -l ./gdrive/
+
