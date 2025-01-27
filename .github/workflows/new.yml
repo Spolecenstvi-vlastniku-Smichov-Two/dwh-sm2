@@ -45,7 +45,7 @@ jobs:
             for file in ./latest/*; do
               Item=$((Item + 1))
               Keys+="Date,"
-              Files+="${Item}.csv "
+              Files+="tmp${Item}.csv "
               echo "Processing $file"
               nb_of_cols=$(csvcut -n "$file" -d ';' | grep "[A-Za-a]" | wc -l)
               csvcut -c 1-"$nb_of_cols" "$file" -d ';' >  ./latest/tmp"$Item".csv
@@ -55,6 +55,6 @@ jobs:
           Files=$(echo -n $Files | head -c -1)
           csvjoin -c "$Keys" --outer ${Files} > ./latest/merged.csv
           rclone copy ./latest/merged.csv sm2drive:Vzduchotechnika/Model/
-          
+
       - run: ls -l ./latest/
 
