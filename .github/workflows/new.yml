@@ -39,22 +39,18 @@ jobs:
       - name: Iterate over files and extract valid data to new files
         run: |
           Item=0
-          Keys=""
           Files=""
           if [ -d "./latest" ]; then
             for file in ./latest/*; do
               Item=$((Item + 1))
-              Keys+="Date,"
               Files+="./latest/tmp${Item}.csv "
               echo "Processing $file"
               nb_of_cols=$(csvcut -n "$file" -d ';' | grep "[A-Za-a]" | wc -l)
               csvcut -c 1-"$nb_of_cols" "$file" -d ';' >  ./latest/tmp"$Item".csv
             done
           fi
-          Keys=${Keys::-1}
           Files=${Files::-1}
-          csvjoin -c "$Keys" --outer ${Files} > ./latest/merged.csv
-          rclone copy ./latest/merged.csv sm2drive:Vzduchotechnika/Model/
+          csvjoin -c "Date" --outer ${Files} > ./latest/merged.csv
           rclone copy ./latest/ sm2drive:Vzduchotechnika/Latest/Upload/
 
       - run: ls -l ./latest/
