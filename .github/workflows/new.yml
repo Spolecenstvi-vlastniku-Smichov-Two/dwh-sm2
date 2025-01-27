@@ -48,5 +48,5 @@ jobs:
             done
           fi
 
-      - run: ls -l ./gdrive/
+      - run: ls -l ./latest/
 
