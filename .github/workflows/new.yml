@@ -45,7 +45,7 @@ jobs:
             for file in ./latest/*; do
               Item=$((Item + 1))
               Keys+="Date,"
-              Files+="tmp${Item}.csv "
+              Files+="./latest/tmp${Item}.csv "
               echo "Processing $file"
               nb_of_cols=$(csvcut -n "$file" -d ';' | grep "[A-Za-a]" | wc -l)
               csvcut -c 1-"$nb_of_cols" "$file" -d ';' >  ./latest/tmp"$Item".csv
