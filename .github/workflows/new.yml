@@ -50,7 +50,7 @@ jobs:
             done
           fi
           Files=${Files::-1}
-          csvjoin -c "Date" --outer ${Files} > ./latest/merged.csv
+          csvjoin -u 0 -q '"' -c "Date" --outer ${Files} > ./latest/merged.csv
           rclone copy ./latest/ sm2drive:Vzduchotechnika/Latest/Upload/
 
       - run: ls -l ./latest/
