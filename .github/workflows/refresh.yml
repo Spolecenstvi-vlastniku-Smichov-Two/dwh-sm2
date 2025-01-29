@@ -26,6 +26,14 @@ jobs:
 
       - uses: actions/setup-python@master
 
+      - name: Smoke data
+        run: |
+          mkdir -p ${{ github.workspace }}/gdrive && echo "time;location;data_key;data_value" >  ${{ github.workspace }}/gdrive/fact.csv
+          for Item in 'sm2_01' 'sm2_02' 'sm2_03' 'sm2_04' 'sm2_05' 'sm2_06' 'sm2_07' 'sm2_08' 'sm2_09' ;
+            do
+              echo "Date;venkov;sani;odvod;privod;vyfuk;end" >  ${{ github.workspace }}/gdrive/"$Item".csv
+            done
+
       - name: Lint with sqlfluff
         run: |
           pip install sqlfluff
