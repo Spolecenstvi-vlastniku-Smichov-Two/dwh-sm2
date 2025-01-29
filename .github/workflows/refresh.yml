@@ -3,9 +3,7 @@ name: refresh
 on:
   push:
     branches:
-      - main
-  schedule:
-    - cron: '0 0 * * *'
+      - refresh
     
 env:
   DBT_PROFILES_DIR: ./
@@ -23,17 +21,6 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@master
 
-      - name: Setup Rclone
-        uses: AnimMouse/setup-rclone@v1
-        with:
-          rclone_config: ${{ secrets.RCLONE_CONFIG }}
-        
-      - name: Add Rclone service account file
-        uses: AnimMouse/setup-rclone/service-account-file@v1
-        with:
-          service_account_filename: service-account-file.json
-          service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }} 
-
       - name: DuckDB setup
         uses: opt-nc/setup-duckdb-action@main
 
@@ -48,91 +35,17 @@ jobs:
           # git fetch origin main:main
           # git diff main --name-only --diff-filter=d | egrep '^models/.*sql$$' | xargs -r sqlfluff lint
 
-      - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
-
-      - run: ls -l ./gdrive/
-
-      - run: rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
-
-      - name: Iterate over files and extract SM house number and date
-        run: |
-          if [ -d "./latest" ]; then
-            for file in ./latest/*; do
-              echo "Processing $file"
-              sm_house_number=$(head -n 1 "$file" | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
-              echo "SM House Number: $sm_house_number"
-              date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
-              echo "Date: $date"
-              if [[ ${#sm_house_number} -eq 2 ]]; then
-                mv -f "$file" "./latest/sm2_${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv" ||:
-                echo "extdate=${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}" >> $GITHUB_ENV
-              else
-                echo "Skipping renaming $file as SM house number does not have exactly two chars."
-              fi
-            done
-          fi
-
-      - name: Copy latest files to final
-        run: |
-          if [ -d "./latest" ]; then
-            sorted_files=$(ls ./latest | sort)
-            for Item in 'sm2_01' 'sm2_02' 'sm2_03' 'sm2_04' 'sm2_05' 'sm2_06' 'sm2_07' 'sm2_08' 'sm2_09' ;
-              do
-                rclone copyto ./latest/$(echo "$sorted_files" | grep "$Item" | tail -n 1) ./gdrive/"$Item".csv
-              done
-          else
-            for Item in 'sm2_01' 'sm2_02' 'sm2_03' 'sm2_04' 'sm2_05' 'sm2_06' 'sm2_07' 'sm2_08' 'sm2_09' ;
-              do
-                echo "Date;venkov;sani;odvod;privod;vyfuk;end" >  ./gdrive/"$Item".csv
-              done
-          fi
-            
-      - name: Iterate over files and correct the file headers
-        run: |
-          for file in ./gdrive/*; 
-            do
-              fileheader=$(head -n 1 "$file")
-              IFS=';' read -ra my_array <<< "$fileheader"
-              newfileheader=""
-              for i in "${my_array[@]}"
-                do
-                  for Item in 'Date' 'venkov' 'sani' 'odvod' 'privod' 'vyfuk' ;
-                    do
-                      if [[ $i == *"$Item"* ]]; then
-                        newfileheader+="$Item;"
-                      fi
-                    done
-                done
-              sed -i "1 s/^.*$/${newfileheader}end/" "$file"
-            done
-            echo $(head -n 1 "$file")
-
-      - run: ls -l ./gdrive/
-
       - name: Install dependencies
         run: |
           pip install dbt-duckdb
-          dbt deps
-      
-      - name: Download Prior Dbt Artifacts
-        uses: actions/github-script@master
-        continue-on-error: true
-        env:
-          WORKFLOW_FILENAME: refresh.yml
-          ARTIFACT_NAME: dbt-target
-          ARTIFACT_FILENAME: dbt-target.zip
-          UNZIP_DIR: prior
-        with:
-          script: |
-            const script = require('./scripts/download-previous-artifact.js')
-            await script({github, context, core})    
+          dbt deps 
 
       - name: Run dbt source freshness
         run: dbt source freshness
 
       - name: Run dbt build
         id: run_dbt_build
-        run: dbt build --select result:error+ source_status:fresher+ --defer --state prior
+        run: dbt build --select result:error+ source_status:fresher+ --defer --state docs
         continue-on-error: true
 
       - name: Full dbt build 
@@ -142,22 +55,11 @@ jobs:
       - name: Run docs generate
         run: dbt docs generate
 
-      - name: Upload Dbt Artifacts
-        uses: actions/upload-artifact@master
-        with:
-          name: dbt-target
-          path: target
-
-      - run: |
-          if [[ -f "./fact.csv" ]]; then
-              rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
-          fi
-
-      - name: 'Generate dbt docs'
-        uses: praneeth527/generate-dbt-docs@v1
-        with:
-          projects_dir: ../.
-          docs_dir: ${{ github.workspace }}/docs
+      - name: Generate dbt docs
+        run: |
+          mkdir -p ${{ github.workspace }}/docs && cp ${{ github.workspace }}/target/*.json github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.html github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.gpickle github.workspace }}/docs
 
       - run: ls -l ${{ github.workspace }}/docs
 
@@ -177,9 +79,3 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref }}
         continue-on-error: true
-
-      - run: |
-          if [ -d "./latest" ]; then
-            rclone copyto sm2drive:Vzduchotechnika/Latest/Upload sm2drive:Vzduchotechnika/Archiv/${{ env.extdate }}/
-            rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
-          fi
