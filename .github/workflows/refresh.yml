@@ -65,9 +65,9 @@ jobs:
 
       - name: Generate dbt docs
         run: |
-          mkdir -p ${{ github.workspace }}/docs && cp ${{ github.workspace }}/target/*.json github.workspace }}/docs
-          cp ${{ github.workspace }}/target/*.html github.workspace }}/docs
-          cp ${{ github.workspace }}/target/*.gpickle github.workspace }}/docs
+          mkdir -p ${{ github.workspace }}/docs && cp ${{ github.workspace }}/target/*.json ${{ github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.html ${{ github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.gpickle ${{ github.workspace }}/docs
 
       - run: ls -l ${{ github.workspace }}/docs
 
