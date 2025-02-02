@@ -1,40 +1,31 @@
 with source as (
-    select 'sm2_01' as location, sm2_01.* from {{ source('csv_google','sm2_01') }} as sm2_01
-    union all
-    select 'sm2_02' as location, sm2_02.* from {{ source('csv_google','sm2_02') }} as sm2_02
-    union all
-    select 'sm2_03' as location, sm2_03.* from {{ source('csv_google','sm2_03') }} as sm2_03
-    union all
-    select 'sm2_04' as location, sm2_04.* from {{ source('csv_google','sm2_04') }} as sm2_04
-    union all
-    select 'sm2_05' as location, sm2_05.* from {{ source('csv_google','sm2_05') }}as  sm2_05
-    union all
-    select 'sm2_06' as location, sm2_06.* from {{ source('csv_google','sm2_06') }} as sm2_06
-    union all
-    select 'sm2_07' as location, sm2_07.* from {{ source('csv_google','sm2_07') }} as sm2_07
-    union all
-    select 'sm2_08' as location, sm2_08.* from {{ source('csv_google','sm2_08') }} as sm2_08
-    union all
-    select 'sm2_09' as location, sm2_09.* from {{ source('csv_google','sm2_09') }} as sm2_09
+    select cast(columns(*) as varchar) from {{ source('csv_google','merged') }} 
 ),
 unpivoted as (
-    select Date as time, location, 'temp_ambient' as data_key, venkov as data_value from source
-    union all
-    select Date as time, location, 'temp_intake' as data_key, sani as data_value from source
-    union all
-    select Date as time, location, 'temp_indoor' as data_key, odvod as data_value from source
-    union all
-    select Date as time, location, 'temp_fresh' as data_key, privod as data_value from source
-    union all
-    select Date as time, location, 'temp_waste' as data_key, vyfuk as data_value from source
+    unpivot source
+    on columns(* exclude (Date))
+    into
+        name data_key_original
+        value data_value
+),
+mapped as (
+    select
+        unpivoted.Date as time,
+        mapping.location,
+        mapping.data_key,
+        unpivoted.data_value
+    from unpivoted
+    inner join {{ ref('mapping') }} as mapping
+    on unpivoted.data_key_original = mapping.data_key_original
+    where unpivoted.Date is not null
 ),
 final as (
     select 
         time, --strptime(time, '%d.%m.%Y %H:%M:%S') as time, 
         location, 
         data_key, 
-        cast(replace(data_value,',','.') as decimal) as data_value 
-    from unpivoted
+        data_value 
+    from mapped
     union
     select * from {{ source('csv_google','fact_original') }}
 )

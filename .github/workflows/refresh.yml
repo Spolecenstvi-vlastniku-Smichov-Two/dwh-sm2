@@ -3,7 +3,7 @@ name: refresh
 on:
   push:
     branches:
-      - main
+      - develop
   schedule:
     - cron: '0 0 * * *'
     
@@ -54,85 +54,42 @@ jobs:
 
       - run: rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
 
-      - name: Iterate over files and extract SM house number and date
+      - name: Install csvkit
+        run: pip install csvkit
+
+      - name: Iterate over files and extract valid data to new files
         run: |
+          Item=0
+          Files=""
           if [ -d "./latest" ]; then
             for file in ./latest/*; do
+              Item=$((Item + 1))
+              Files+="./latest/tmp${Item}.csv "
               echo "Processing $file"
-              sm_house_number=$(head -n 1 "$file" | grep "Date" | grep -Eo 'vzt[0-9]{2}_temp-tea-sani' | grep -Eo '[0-9]{2}')
-              echo "SM House Number: $sm_house_number"
+              nb_of_cols=$(csvcut -n "$file" -d ';' | grep "[A-Za-a]" | wc -l)
+              csvcut -c 1-"$nb_of_cols" "$file" -d ';' >  ./latest/tmp"$Item".csv
               date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
-              echo "Date: $date"
-              if [[ ${#sm_house_number} -eq 2 ]]; then
-                mv -f "$file" "./latest/sm2_${sm_house_number}_${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}.csv" ||:
-                echo "extdate=${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}" >> $GITHUB_ENV
-              else
-                echo "Skipping renaming $file as SM house number does not have exactly two chars."
-              fi
             done
-          fi
-
-      - name: Copy latest files to final
-        run: |
-          if [ -d "./latest" ]; then
-            sorted_files=$(ls ./latest | sort)
-            for Item in 'sm2_01' 'sm2_02' 'sm2_03' 'sm2_04' 'sm2_05' 'sm2_06' 'sm2_07' 'sm2_08' 'sm2_09' ;
-              do
-                rclone copyto ./latest/$(echo "$sorted_files" | grep "$Item" | tail -n 1) ./gdrive/"$Item".csv
-              done
+            Files=${Files::-1}
+            csvjoin --locale cs_CZ -c Date --outer ${Files} > ./gdrive/merged.csv
+            echo "extdate=${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}" >> $GITHUB_ENV
           else
-            for Item in 'sm2_01' 'sm2_02' 'sm2_03' 'sm2_04' 'sm2_05' 'sm2_06' 'sm2_07' 'sm2_08' 'sm2_09' ;
-              do
-                echo "Date;venkov;sani;odvod;privod;vyfuk;end" >  ./gdrive/"$Item".csv
-              done
+            echo "Date,KOT1/Teplota venkovní (°C)" >  ./gdrive/merged.csv
           fi
-            
-      - name: Iterate over files and correct the file headers
-        run: |
-          for file in ./gdrive/*; 
-            do
-              fileheader=$(head -n 1 "$file")
-              IFS=';' read -ra my_array <<< "$fileheader"
-              newfileheader=""
-              for i in "${my_array[@]}"
-                do
-                  for Item in 'Date' 'venkov' 'sani' 'odvod' 'privod' 'vyfuk' ;
-                    do
-                      if [[ $i == *"$Item"* ]]; then
-                        newfileheader+="$Item;"
-                      fi
-                    done
-                done
-              sed -i "1 s/^.*$/${newfileheader}end/" "$file"
-            done
-            echo $(head -n 1 "$file")
 
       - run: ls -l ./gdrive/
 
       - name: Install dependencies
         run: |
           pip install dbt-duckdb
-          dbt deps
-      
-      - name: Download Prior Dbt Artifacts
-        uses: actions/github-script@master
-        continue-on-error: true
-        env:
-          WORKFLOW_FILENAME: refresh.yml
-          ARTIFACT_NAME: dbt-target
-          ARTIFACT_FILENAME: dbt-target.zip
-          UNZIP_DIR: prior
-        with:
-          script: |
-            const script = require('./scripts/download-previous-artifact.js')
-            await script({github, context, core})    
+          dbt deps  
 
       - name: Run dbt source freshness
         run: dbt source freshness
 
       - name: Run dbt build
         id: run_dbt_build
-        run: dbt build --select result:error+ source_status:fresher+ --defer --state prior
+        run: dbt build --select result:error+ source_status:fresher+ --defer --state docs
         continue-on-error: true
 
       - name: Full dbt build 
@@ -142,22 +99,16 @@ jobs:
       - name: Run docs generate
         run: dbt docs generate
 
-      - name: Upload Dbt Artifacts
-        uses: actions/upload-artifact@master
-        with:
-          name: dbt-target
-          path: target
+      - name: Generate dbt docs
+        run: |
+          mkdir -p ${{ github.workspace }}/docs && cp ${{ github.workspace }}/target/*.json ${{ github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.html ${{ github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.gpickle ${{ github.workspace }}/docs
 
       - run: |
           if [[ -f "./fact.csv" ]]; then
               rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
           fi
-
-      - name: 'Generate dbt docs'
-        uses: praneeth527/generate-dbt-docs@v1
-        with:
-          projects_dir: ../.
-          docs_dir: ${{ github.workspace }}/docs
 
       - run: ls -l ${{ github.workspace }}/docs
 
