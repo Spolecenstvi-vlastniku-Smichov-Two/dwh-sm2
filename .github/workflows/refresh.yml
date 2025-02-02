@@ -42,7 +42,7 @@ jobs:
       - name: Lint with sqlfluff
         run: |
           pip install sqlfluff
-          sqlfluff lint -r L020,L021,L049 --dialect ansi -v models/
+          sqlfluff lint --dialect duckdb -v models/
     
           # Linting only modified models
           # git fetch origin main:main
