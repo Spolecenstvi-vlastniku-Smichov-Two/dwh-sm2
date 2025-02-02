@@ -3,7 +3,7 @@ name: refresh
 on:
   push:
     branches:
-      - develop
+      - main
   schedule:
     - cron: '0 0 * * *'
     
