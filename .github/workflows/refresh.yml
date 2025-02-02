@@ -82,7 +82,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install dbt-duckdb
-          dbt deps  
+          dbt deps
+          dbt seed
 
       - name: Run dbt source freshness
         run: dbt source freshness
