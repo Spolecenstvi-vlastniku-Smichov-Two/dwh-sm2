@@ -87,6 +87,9 @@ jobs:
       - name: Run dbt source freshness
         run: dbt source freshness
 
+      - name: Run dbt seed
+        run: dbt seed
+
       - name: Run dbt build
         id: run_dbt_build
         run: dbt build --select result:error+ source_status:fresher+ --defer --state docs
