@@ -16,7 +16,7 @@ mapped as (
 
 final as (
     select
-        time, --strptime(time, '%d.%m.%Y %H:%M:%S') as time, 
+        time, 
         location,
         data_key,
         data_value
