@@ -158,12 +158,12 @@ jobs:
         continue-on-error: true
 
       - run: |
-          if find ./latest -maxdepth 1 -type f -name 'ThermoProSensor_export_*' | grep -q .; then
+          if find ./latest -maxdepth 1 -type f -name 'Graph*' | grep -q .; then
             echo "📂 Soubory ThermoProSensor_export_* nalezeny, provádím archivaci Vzduchotechnika/Latest/Upload"
             rclone copyto sm2drive:Vzduchotechnika/Latest/Upload sm2drive:Vzduchotechnika/Archiv/${{ env.extdate }}/
             rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
           fi
-          if find ./latest -maxdepth 1 -type f -name 'Graph*' | grep -q .; then
+          if find ./latest -maxdepth 1 -type f -name 'ThermoProSensor_export_*' | grep -q .; then
             echo "📂 Soubory Graph* nalezeny, provádím archivaci Indoor/Latest/Upload"
             rclone copyto sm2drive:Indoor/Latest/Upload sm2drive:Indoor/Archiv/${{ env.extdate }}/
             rclone purge sm2drive:Indoor/Latest/Upload && rclone mkdir sm2drive:Indoor/Latest/Upload
