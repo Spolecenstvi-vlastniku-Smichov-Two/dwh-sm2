@@ -51,19 +51,23 @@ jobs:
 
       - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
 
+      - run: rclone copy sm2drive:Indoor/Model/ ./gdrive/
+
       - run: ls -l ./gdrive/
 
       - run: rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
 
+      - run: rclone copy sm2drive:Indoor/Latest/Upload ./latest/
+
       - name: Install csvkit
         run: pip install csvkit
 
-      - name: Iterate over files and extract valid data to new files
+      - name: Merge valid Ventilation data
         run: |
           Item=0
           Files=""
-          if [ -d "./latest" ]; then
-            for file in ./latest/*; do
+          if find ./latest -maxdepth 1 -type f -name 'Graph*' | grep -q .; then
+            for file in ./latest/Graph*; do
               Item=$((Item + 1))
               Files+="./latest/tmp${Item}.csv "
               echo "Processing $file"
@@ -78,6 +82,12 @@ jobs:
             echo "Date,KOT1/Teplota venkovní (°C)" >  ./gdrive/merged.csv
           fi
 
+      - name: Make indoor_merge_all_sensors.sh executable
+        run: chmod +x ./scripts/indoor_merge_all_sensors.sh
+
+      - name: Merge valid Indoor data
+        run: ./scripts/indoor_merge_all_sensors.sh
+          
       - run: ls -l ./gdrive/
 
       - name: Install dependencies
