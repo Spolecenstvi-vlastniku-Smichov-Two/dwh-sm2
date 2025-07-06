@@ -2,7 +2,7 @@ version: 2
 
 sources:
   - name: csv_google
-    loaded_at_field: "CAST(Date AS TIMESTAMP)"
+    loaded_at_field: cast(Date as timestamp)
 
     freshness:
       warn_after: {count: 365, period: day}
