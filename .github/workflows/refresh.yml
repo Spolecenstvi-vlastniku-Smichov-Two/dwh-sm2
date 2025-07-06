@@ -92,7 +92,9 @@ jobs:
       - run: ls -l ./gdrive/
 
       - name: Install dependencies
-        run: dbt deps
+        run: |
+          pip install dbt-duckdb
+          dbt deps
 
       - name: Run dbt source freshness
         run: dbt source freshness
