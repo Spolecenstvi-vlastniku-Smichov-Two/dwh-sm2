@@ -16,7 +16,7 @@ mapped as (
 
 final as (
     select
-        time, 
+        time,
         location,
         data_key,
         data_value
