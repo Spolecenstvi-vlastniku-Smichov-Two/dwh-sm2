@@ -124,12 +124,18 @@ jobs:
       - run: |
           if [[ -f "./fact.csv" ]]; then
               rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
+          else
+              echo "fact.csv not found, skipping upload"
           fi
           if [[ -f "./fact_indoor_temperature.csv" ]]; then
               rclone copy ./fact_indoor_temperature.csv sm2drive:Indoor/Model/
+          else
+              echo "fact_indoor_temperature.csv not found, skipping upload"
           fi
           if [[ -f "./fact_indoor_humidity.csv" ]]; then
               rclone copy ./fact_indoor_humidity.csv sm2drive:Indoor/Model/
+          else
+              echo "fact_indoor_humidity.csv not found, skipping upload"
           fi
 
       - run: ls -l ${{ github.workspace }}/docs
