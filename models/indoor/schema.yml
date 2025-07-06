@@ -1,0 +1,17 @@
+version: 2
+
+models:
+  - name: fact_indoor_temperature
+    description: the fact table for indoor temperature data
+    columns:
+      - name: time
+        description: This is a date time
+        tests:
+          - not_null
+  - name: fact_indoor_humidity
+    description: the fact table for indoor humidity data
+    columns:
+      - name: time
+        description: This is a date time
+        tests:
+          - not_null

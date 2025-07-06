@@ -123,6 +123,12 @@ jobs:
           if [[ -f "./fact.csv" ]]; then
               rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
           fi
+          if [[ -f "./fact_indoor_temperature.csv" ]]; then
+              rclone copy ./fact_indoor_temperature.csv sm2drive:Indoor/Model/
+          fi
+          if [[ -f "./fact_indoor_humidity.csv" ]]; then
+              rclone copy ./fact_indoor_humidity.csv sm2drive:Indoor/Model/
+          fi
 
       - run: ls -l ${{ github.workspace }}/docs
 

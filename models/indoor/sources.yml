@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: csv_google_indoor
+    loaded_at_field: "CAST(Datetime AS TIMESTAMP)"
+
+    freshness:
+      warn_after: {count: 365, period: day}
+
+    tables:
+      - name: fact_indoor_temperature_original
+        freshness:
+        config:
+          external_location: "read_csv('./gdrive/fact_indoor_temperature.csv')"
+      - name: fact_indoor_humidity_original
+        freshness:
+        config:
+          external_location: "read_csv('./gdrive/fact_indoor_humidity.csv')"
+      - name: merged_indoor
+        config:
+          external_location: "read_csv('./gdrive/all_sensors_merged.csv')"

@@ -7,7 +7,7 @@ total_lines=0
 rm -f "$output"
 
 if ! ls ./latest/ThermoProSensor_export_*.csv 1> /dev/null 2>&1; then
-  echo "Datetime,Temperature_Celsius,Relative_Humidity(%),location" > "$output"
+  echo "Datetime,Temperature_Celsius,Relative_Humidity(%),Location" > "$output"
   exit 0
 fi
 
@@ -15,7 +15,7 @@ for file in ./latest/ThermoProSensor_export_*.csv; do
   echo "📄 Zpracovávám: $file"
 
   location=$(basename "$file" | awk -F'_' '{print $3}')
-  echo "   - location: $location"
+  echo "   - Location: $location"
 
   # Smazat popisnou hlavičku
   awk 'NR==1 && /^Timestamp/ {next} {print}' "$file" > tmp && mv tmp "$file"
@@ -30,7 +30,7 @@ for file in ./latest/ThermoProSensor_export_*.csv; do
     # První soubor: přidej hlavičku Datetime
     awk -F',' -v loc="$location" 'BEGIN{OFS=","}
     NR==1 {
-      print "Datetime", $3, $4, "location"
+      print "Datetime", $3, $4, "Location"
       next
     }
     NF {
