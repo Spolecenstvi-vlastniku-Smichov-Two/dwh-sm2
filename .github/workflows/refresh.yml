@@ -43,6 +43,7 @@ jobs:
       - name: Lint with sqlfluff
         run: |
           pip install sqlfluff
+          sqlfluff fix --dialect duckdb -v models/
           sqlfluff lint --dialect duckdb -v models/
     
           # Linting only modified models
