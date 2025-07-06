@@ -36,6 +36,11 @@ jobs:
           service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }} 
 
       - uses: actions/setup-python@master
+        with:
+          python-version: '3.12'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
       - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
 
