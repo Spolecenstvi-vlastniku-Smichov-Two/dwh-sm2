@@ -21,15 +21,3 @@ require-dbt-version: [">=1.0.0", "<2.0.0"]
 
 models:
   dwh_sm2:
-    fact:
-      materialized: external
-      +location: "./fact.csv"
-      format: csv
-    fact_indoor_humidity:
-      materialized: external
-      +location: "./fact_indoor_humidity.csv"
-      format: csv
-    fact_indoor_temperature:
-      materialized: external
-      +location: "./fact_indoor_temperature.csv"
-      format: csv
