@@ -25,3 +25,11 @@ models:
       materialized: external
       +location: "./fact.csv"
       format: csv
+    fact_indoor_humidity:
+      materialized: external
+      +location: "./fact_indoor_humidity.csv"
+      format: csv
+    fact_indoor_temperature:
+      materialized: external
+      +location: "./fact_indoor_temperature.csv"
+      format: csv
