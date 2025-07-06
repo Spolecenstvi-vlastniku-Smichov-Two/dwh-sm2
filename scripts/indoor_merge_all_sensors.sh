@@ -74,3 +74,4 @@ done
 echo "✅ Hotovo!"
 echo "Celkem sloučeno řádků: $total_lines"
 echo "Výstupní soubor: $output"
+head -n 10 "$output"
