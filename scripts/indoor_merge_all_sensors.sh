@@ -6,6 +6,11 @@ total_lines=0
 
 rm -f "$output"
 
+if ! ls ./latest/ThermoProSensor_export_*.csv 1> /dev/null 2>&1; then
+  echo "Datetime,Temperature_Celsius,Relative_Humidity(%),location" > "$output"
+  exit 0
+fi
+
 for file in ./latest/ThermoProSensor_export_*.csv; do
   echo "📄 Zpracovávám: $file"
 
