@@ -37,16 +37,6 @@ jobs:
 
       - uses: actions/setup-python@master
 
-      - name: Lint with sqlfluff
-        run: |
-          pip install sqlfluff
-          sqlfluff fix --dialect duckdb -v models/
-          sqlfluff lint --dialect duckdb -v models/
-    
-          # Linting only modified models
-          # git fetch origin main:main
-          # git diff main --name-only --diff-filter=d | egrep '^models/.*sql$$' | xargs -r sqlfluff lint
-
       - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
 
       - run: rclone copy sm2drive:Indoor/Model/ ./gdrive/
@@ -56,9 +46,6 @@ jobs:
       - run: rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
 
       - run: rclone copy sm2drive:Indoor/Latest/Upload ./latest/
-
-      - name: Install csvkit
-        run: pip install csvkit
 
       - name: Merge valid Ventilation data
         run: |
@@ -92,7 +79,18 @@ jobs:
         run: |
           pip install --upgrade dbt-duckdb
           pip install --upgrade duckdb
+          pip install --upgrade csvkit
           dbt deps
+
+      - name: Lint with sqlfluff
+        run: |
+          pip install --upgrade sqlfluff
+          sqlfluff fix --dialect duckdb -v models/
+          sqlfluff lint --dialect duckdb -v models/
+    
+          # Linting only modified models
+          # git fetch origin main:main
+          # git diff main --name-only --diff-filter=d | egrep '^models/.*sql$$' | xargs -r sqlfluff lint
 
       - name: Run dbt source freshness
         run: dbt source freshness
