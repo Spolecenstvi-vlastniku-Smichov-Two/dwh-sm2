@@ -2,7 +2,7 @@ version: 2
 
 sources:
   - name: csv_google_indoor
-    loaded_at_field: "Datetime"
+    loaded_at_field: Datetime
 
     freshness:
       warn_after: {count: 365, period: day}
