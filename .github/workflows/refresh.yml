@@ -157,8 +157,33 @@ jobs:
           branch: ${{ github.ref }}
         continue-on-error: true
 
-      - run: |
-          if [ -d "./latest" ]; then
-            rclone copyto sm2drive:Vzduchotechnika/Latest/Upload sm2drive:Vzduchotechnika/Archiv/${{ env.extdate }}/
-            rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
-          fi
+      - name: Archivace souborů na drive (Vzduchotechnika & Indoor)
+        run: |
+          echo "📁 Start archivace souborů Vzduchotechnika & Indoor"
+
+          export EXT_DATE="${{ env.extdate }}"
+          echo "📌 Archivní složka: ${EXT_DATE}"
+          echo
+
+          for pair in "Vzduchotechnika ThermoProSensor_export_*" "Indoor Graph*"; do
+            dir=$(echo "$pair" | awk '{print $1}')
+            pattern=$(echo "$pair" | awk '{print $2}')
+
+            echo "🔍 Kontrola: $dir | Vzor: $pattern"
+
+            if find ./latest -maxdepth 1 -type f -name "$pattern" | grep -q .; then
+              echo "📂 Soubory '$pattern' nalezeny, provádím archivaci ${dir}/Latest/Upload"
+
+              rclone copyto sm2drive:${dir}/Latest/Upload sm2drive:${dir}/Archiv/${EXT_DATE}/
+
+              echo "🧹 Čistím a vytvářím složku sm2drive:${dir}/Latest/Upload"
+              rclone purge sm2drive:${dir}/Latest/Upload && rclone mkdir sm2drive:${dir}/Latest/Upload
+            else
+              echo "ℹ️ Ve složce ./latest nejsou soubory odpovídající '$pattern' → přeskočeno"
+            fi
+
+          done
+
+          echo "✅ Archivace a úklid hotovo!"
+
+          
