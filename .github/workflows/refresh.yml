@@ -52,6 +52,9 @@ jobs:
 
       - run: rclone copy sm2drive:Indoor/Latest/Upload ./latest/
 
+      - name: Install csvkit
+        run: pip install --upgrade csvkit
+
       - name: Merge valid Ventilation data
         run: |
           Item=0
@@ -84,7 +87,6 @@ jobs:
         run: |
           pip install --upgrade dbt-duckdb
           pip install --upgrade duckdb
-          pip install --upgrade csvkit
           dbt deps
 
       - name: Lint with sqlfluff
