@@ -2,11 +2,11 @@ name: Prepare and Import Annotated CSV
 
 on:
   workflow_dispatch:
+    inputs: {}
 
 jobs:
   import-influx:
     runs-on: ubuntu-latest
-      inputs: {}
     services:
       influxdb:
         image: influxdb:2.7
