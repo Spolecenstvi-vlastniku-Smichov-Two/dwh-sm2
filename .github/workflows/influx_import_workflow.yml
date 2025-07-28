@@ -6,7 +6,7 @@ on:
 jobs:
   import-influx:
     runs-on: ubuntu-latest
-
+      inputs: {}
     services:
       influxdb:
         image: influxdb:2.7
