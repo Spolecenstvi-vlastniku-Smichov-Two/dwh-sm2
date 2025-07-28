@@ -44,23 +44,16 @@ jobs:
       - name: Install Python dependencies
         run: pip install pandas
 
-      - name: Install Influx CLI
+      - name: Install Influx CLI 2.7.5 (ARM64)
         run: |
-          INFLUX_VERSION=2.7.3
-          DOWNLOAD_URL="https://github.com/influxdata/influx-cli/releases/download/v${INFLUX_VERSION}/influx-cli_${INFLUX_VERSION}_linux_amd64.tar.gz"
-          echo "Downloading Influx CLI from: $DOWNLOAD_URL"
-          curl -fsSL -H "Accept: application/octet-stream" -o influx-cli.tar.gz "$DOWNLOAD_URL"
-          file influx-cli.tar.gz
-          tar -xzf influx-cli.tar.gz
-          sudo mv influx /usr/local/bin/influx
+          curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-arm64.deb -o influx-cli.deb
+          sudo dpkg -i influx-cli.deb
           influx version
-
 
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
         with:
           rclone_config: ${{ secrets.RCLONE_CONFIG }}
-
 
       - name: Download source CSVs from Google Drive
         run: |
