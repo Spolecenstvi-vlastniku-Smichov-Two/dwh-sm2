@@ -47,7 +47,7 @@ jobs:
       - name: Install Influx CLI
         run: |
           INFLUX_VERSION=2.7.3
-          wget https://dl.influxdata.com/influx-cli/releases/${INFLUX_VERSION}/influx-cli_${INFLUX_VERSION}_linux_amd64.tar.gz
+          wget https://dl.influxdata.com/influxdb2-client/influx-cli_2.7.3_linux_amd64.tar.gz
           tar -xzf influx-cli_${INFLUX_VERSION}_linux_amd64.tar.gz
           sudo mv influx /usr/local/bin/influx
           influx version
