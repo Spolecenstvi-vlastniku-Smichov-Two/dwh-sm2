@@ -9,6 +9,12 @@ on:
 jobs:
   import-influx:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      actions: read
+      packages: write
+
     services:
       influxdb:
         image: influxdb:2.7
