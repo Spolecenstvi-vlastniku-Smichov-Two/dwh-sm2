@@ -3,7 +3,7 @@ import pandas as pd
 import csv
 import os
 
-mapping_df = pd.read_csv("mapping_sources.csv", encoding="utf-8-sig")
+mapping_df = pd.read_csv("./seeds/mapping_sources.csv", encoding="utf-8-sig")
 all_data = []
 
 for _, row in mapping_df.iterrows():
