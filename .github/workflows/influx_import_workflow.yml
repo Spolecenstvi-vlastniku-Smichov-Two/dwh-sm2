@@ -44,11 +44,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install pandas
 
-      - name: Install Influx CLI
-        run: |
-          curl -sL https://github.com/influxdata/influx-cli/releases/download/v2.7.3/influx-cli_2.7.3_linux_amd64.tar.gz | tar xz
-          sudo mv influx /usr/local/bin/influx
-          influx version
+      - name: Setup Influx CLI
+        uses: influxdata/setup-influxctl@v1
+        with:
+          influxctl-version: 2.7.3
 
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
