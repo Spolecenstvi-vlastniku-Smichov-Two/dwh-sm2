@@ -47,10 +47,14 @@ jobs:
       - name: Install Influx CLI
         run: |
           INFLUX_VERSION=2.7.3
-          curl -sL -o influx-cli.tar.gz https://github.com/influxdata/influx-cli/releases/download/v${INFLUX_VERSION}/influx-cli_${INFLUX_VERSION}_linux_amd64.tar.gz
+          DOWNLOAD_URL="https://github.com/influxdata/influx-cli/releases/download/v${INFLUX_VERSION}/influx-cli_${INFLUX_VERSION}_linux_amd64.tar.gz"
+          echo "Downloading Influx CLI from: $DOWNLOAD_URL"
+          curl -fsSL -H "Accept: application/octet-stream" -o influx-cli.tar.gz "$DOWNLOAD_URL"
+          file influx-cli.tar.gz
           tar -xzf influx-cli.tar.gz
           sudo mv influx /usr/local/bin/influx
           influx version
+
 
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
