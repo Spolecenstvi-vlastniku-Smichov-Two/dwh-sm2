@@ -1,90 +1,173 @@
-#!/usr/bin/env bash
+name: refresh
 
-output="./gdrive/all_sensors_merged.csv"
-first=1
-total_lines=0
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    
+env:
+  DBT_PROFILES_DIR: ./
 
-rm -f "$output"
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
 
-if ! ls ./latest/ThermoProSensor_export_*.csv 1> /dev/null 2>&1; then
-  echo "Nenalezen žádný soubor - vytvářím prázdný výstup s hlavičkou"
-  echo "Datetime,Temperature_Celsius,Relative_Humidity(%),Location" > "$output"
-  exit 0
-fi
+    permissions:
+      contents: write
+      actions: read
+      packages: write
 
-# Funkce pro detekci formátu datumu
-guess_date_format() {
-  local file="$1"
-  local d m
-  local dmy=0
-  local mdy=0
-  local ambiguous=0
-  local current_month=$(date +%m | sed 's/^0*//')
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@master
 
-  awk 'NR > 2' "$file" | sed 's/^\xEF\xBB\xBF//' | \
-  awk -F',' 'NR % 1000 == 1 && $1 ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/ {print $1}' | \
-  while read -r line; do
-    d=$(echo "$line" | cut -d'/' -f1)
-    m=$(echo "$line" | cut -d'/' -f2)
+      - name: Setup Rclone
+        uses: AnimMouse/setup-rclone@v1
+        with:
+          rclone_config: ${{ secrets.RCLONE_CONFIG }}
+        
+      - name: Add Rclone service account file
+        uses: AnimMouse/setup-rclone/service-account-file@v1
+        with:
+          service_account_filename: service-account-file.json
+          service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }} 
 
-    if ((10#$d > 12)); then
-      dmy=$((dmy + 1))
-    elif ((10#$m > 12)); then
-      mdy=$((mdy + 1))
-    else
-      ambiguous=$((ambiguous + 1))
-    fi
-  done
+      - uses: actions/setup-python@master
+        with:
+          python-version: '3.12'
 
-  if (( dmy > 0 && mdy == 0 )); then
-    echo "DMY"
-  elif (( mdy > 0 && dmy == 0 )); then
-    echo "MDY"
-  elif (( dmy > mdy )); then
-    echo "DMY"
-  elif (( mdy > dmy )); then
-    echo "MDY"
-  else
-    # fallback – použít první dostupné datum a porovnat s aktuálním měsícem
-    first_date=$(awk 'NR > 2' "$file" | sed 's/^\xEF\xBB\xBF//' | awk -F',' '$1 ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/ {print $1; exit}')
-    if [ -n "$first_date" ]; then
-      f1=$(echo "$first_date" | cut -d'/' -f1)
-      f2=$(echo "$first_date" | cut -d'/' -f2)
-      if ((10#$f1 == current_month)); then
-        echo "MDY"
-      elif ((10#$f2 == current_month)); then
-        echo "DMY"
-      else
-        echo "DMY"
-      fi
-    else
-      echo "DMY"
-    fi
-  fi
-}
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
-# Zpracování všech souborů
-for file in ./latest/ThermoProSensor_export_*.csv; do
-  echo "📄 Zpracovávám: $file"
+      - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
 
-  location=$(basename "$file" | awk -F'_' '{print $3}')
-  echo "   - Location: $location"
+      - run: rclone copy sm2drive:Indoor/Model/ ./gdrive/
 
-  date_format=$(guess_date_format "$file")
-  echo "   - Formát datumu: $date_format"
+      - run: ls -l ./gdrive/
 
-  if [ $first -eq 1 ]; then
-    echo "Datetime,Temperature_Celsius,Relative_Humidity(%),Location" > "$output"
-    first=0
-  fi
+      - run: rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
 
-  awk -v OFS="," -v loc="$location" -v fmt="$date_format" '
-    BEGIN { FS="," }
-    NR <= 2 { next }  # přeskočit popis a hlavičku
-    {
-      gsub(/^\xEF\xBB\xBF/, "", $1)  # odstranit BOM, pokud zůstal
-    }
-    NF && $1 ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/ && $2 ~ /^[0-9]{1,2}:[0-9]{2}$/ {
-      split($1, d, "/")
-      day = (fmt == "DMY" ? d[1] : d[2])
-      month = (fmt == "DMY" ? d[2] : d[1])
+      - run: rclone copy sm2drive:Indoor/Latest/Upload ./latest/
+
+      - name: Install csvkit
+        run: pip install --upgrade csvkit
+
+      - name: Merge valid Ventilation data
+        run: |
+          Item=0
+          Files=""
+          if find ./latest -maxdepth 1 -type f -name 'Graph*' | grep -q .; then
+            for file in ./latest/Graph*; do
+              Item=$((Item + 1))
+              Files+="./latest/tmp${Item}.csv "
+              echo "Processing $file"
+              nb_of_cols=$(csvcut -n "$file" -d ';' | grep "[A-Za-a]" | wc -l)
+              csvcut -c 1-"$nb_of_cols" "$file" -d ';' >  ./latest/tmp"$Item".csv
+              date=$(tail "$file" | grep "00:00" | tail -n 1 | grep -Eo '[0-9]{2}.[0-9]{2}.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -E 's/([0-9]{2}).([0-9]{2}).([0-9]{4})/\3-\2-\1/')
+            done
+            Files=${Files::-1}
+            csvjoin --locale cs_CZ -c Date --outer ${Files} > ./gdrive/merged.csv
+            echo "extdate=${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}" >> $GITHUB_ENV
+          else
+            echo "Date,KOT1/Teplota venkovní (°C)" >  ./gdrive/merged.csv
+          fi
+
+      - name: Make indoor_merge_all_sensors.sh executable
+        run: chmod +x ./scripts/indoor_merge_all_sensors.sh
+
+      - name: Merge valid Indoor data
+        run: ./scripts/indoor_merge_all_sensors.sh
+          
+      - run: ls -l ./gdrive/
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade dbt-duckdb
+          pip install --upgrade duckdb
+          dbt deps
+
+      - name: Lint with sqlfluff
+        run: |
+          pip install --upgrade sqlfluff
+          sqlfluff fix --dialect duckdb -v models/
+          sqlfluff lint --dialect duckdb -v models/
+    
+          # Linting only modified models
+          # git fetch origin main:main
+          # git diff main --name-only --diff-filter=d | egrep '^models/.*sql$$' | xargs -r sqlfluff lint
+
+      - name: Run dbt source freshness
+        run: dbt source freshness
+
+      - name: Run dbt seed
+        run: dbt seed
+
+      - name: Run dbt build
+        id: run_dbt_build
+        run: dbt build --select result:error+ source_status:fresher+ --defer --state docs
+        continue-on-error: true
+
+      - name: Full dbt build 
+        if: steps.run_dbt_build.outcome != 'success'
+        run: dbt build
+
+      - name: Run docs generate
+        run: dbt docs generate
+
+      - name: Generate dbt docs
+        run: |
+          mkdir -p ${{ github.workspace }}/docs && cp ${{ github.workspace }}/target/*.json ${{ github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.html ${{ github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.gpickle ${{ github.workspace }}/docs
+
+      - run: |
+          if [[ -f "./fact.csv" ]]; then
+              rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
+          else
+              echo "fact.csv not found, skipping upload"
+          fi
+          if [[ -f "./fact_indoor_temperature.csv" ]]; then
+              rclone copy ./fact_indoor_temperature.csv sm2drive:Indoor/Model/
+          else
+              echo "fact_indoor_temperature.csv not found, skipping upload"
+          fi
+          if [[ -f "./fact_indoor_humidity.csv" ]]; then
+              rclone copy ./fact_indoor_humidity.csv sm2drive:Indoor/Model/
+          else
+              echo "fact_indoor_humidity.csv not found, skipping upload"
+          fi
+
+      - run: ls -l ${{ github.workspace }}/docs
+
+      - run: git status
+
+      - name: Commit files
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add --all :/
+          git commit -m "Add docs"
+        continue-on-error: true
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+        continue-on-error: true
+
+      - run: |
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          if find ./latest -maxdepth 1 -type f -name 'Graph*' | grep -q .; then
+            echo "📂 Soubory ThermoProSensor_export_* nalezeny, provádím archivaci Vzduchotechnika/Latest/Upload"
+            rclone copyto sm2drive:Vzduchotechnika/Latest/Upload sm2drive:Vzduchotechnika/Archiv/${TIMESTAMP}/
+            rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
+          fi
+          if find ./latest -maxdepth 1 -type f -name 'ThermoProSensor_export_*' | grep -q .; then
+            echo "📂 Soubory Graph* nalezeny, provádím archivaci Indoor/Latest/Upload"
+            rclone copyto sm2drive:Indoor/Latest/Upload sm2drive:Indoor/Archiv/${TIMESTAMP}/
+            rclone purge sm2drive:Indoor/Latest/Upload && rclone mkdir sm2drive:Indoor/Latest/Upload
+          fi
