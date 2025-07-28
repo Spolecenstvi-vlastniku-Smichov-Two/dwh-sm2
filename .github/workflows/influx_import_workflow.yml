@@ -1,0 +1,73 @@
+name: Prepare and Import Annotated CSV
+
+on:
+  workflow_dispatch:
+
+jobs:
+  import-influx:
+    runs-on: ubuntu-latest
+
+    services:
+      influxdb:
+        image: influxdb:2.7
+        ports:
+          - 8086:8086
+        options: >-
+          --health-cmd="curl --fail http://localhost:8086/health || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        env:
+          DOCKER_INFLUXDB_INIT_MODE: setup
+          DOCKER_INFLUXDB_INIT_USERNAME: ci-user
+          DOCKER_INFLUXDB_INIT_PASSWORD: ci-password
+          DOCKER_INFLUXDB_INIT_ORG: ci-org
+          DOCKER_INFLUXDB_INIT_BUCKET: sensor_data
+          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ci-secret-token
+
+    env:
+      INFLUX_TOKEN: ci-secret-token
+      INFLUX_ORG: ci-org
+      INFLUX_URL: http://localhost:8086
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: pip install pandas
+
+      - name: Install Influx CLI
+        run: |
+          curl -sL https://repos.influxdata.com/influxdb.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/influxdb.gpg > /dev/null
+          echo "deb https://repos.influxdata.com/debian stable main" | sudo tee /etc/apt/sources.list.d/influxdb.list
+          sudo apt-get update && sudo apt-get install influxdb2-cli -y
+
+      - name: Setup Rclone
+        uses: AnimMouse/setup-rclone@v1
+        with:
+          rclone_config: ${{ secrets.RCLONE_CONFIG }}
+
+
+      - name: Download source CSVs from Google Drive
+        run: |
+          rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
+          rclone copy sm2drive:Indoor/Model/ ./gdrive/
+          rclone copy sm2drive:Influx/ ./gdrive/
+
+      - name: Prepare annotated CSV from source CSVs
+        run: python3 prepare_annotated_csv.py
+
+      - name: Check and import previous monthly exports
+        run: python3 check_and_import_previous_exports.py
+
+      - name: Export aggregated data to clean CSVs and upload to Google Drive
+        run: python3 export_aggregated_to_csv.py
+
+      - name: Export raw data to annotated CSVs and upload to Google Drive
+        run: python3 export_raw_by_month.py
