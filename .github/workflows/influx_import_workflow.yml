@@ -1,8 +1,10 @@
 name: Prepare and Import Annotated CSV
 
 on:
+  push:
+    branches:
+      - develop
   workflow_dispatch:
-    inputs: {}
 
 jobs:
   import-influx:
