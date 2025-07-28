@@ -46,7 +46,7 @@ jobs:
 
       - name: Install Influx CLI 2.7.5 (ARM64)
         run: |
-          curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-arm64.deb -o influx-cli.deb
+          curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-amd64.deb -o influx-cli.deb
           sudo dpkg -i influx-cli.deb
           influx version
 
