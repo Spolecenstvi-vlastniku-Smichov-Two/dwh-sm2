@@ -46,9 +46,9 @@ jobs:
 
       - name: Install Influx CLI
         run: |
-          curl -sL https://repos.influxdata.com/influxdb.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/influxdb.gpg > /dev/null
-          echo "deb https://repos.influxdata.com/debian stable main" | sudo tee /etc/apt/sources.list.d/influxdb.list
-          sudo apt-get update && sudo apt-get install influxdb2-cli -y
+          curl -sL https://github.com/influxdata/influx-cli/releases/download/v2.7.3/influx-cli_2.7.3_linux_amd64.tar.gz | tar xz
+          sudo mv influx /usr/local/bin/influx
+          influx version
 
       - name: Setup Rclone
         uses: AnimMouse/setup-rclone@v1
