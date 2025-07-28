@@ -76,13 +76,13 @@ jobs:
           rclone copy sm2drive:Influx/ ./gdrive/
 
       - name: Prepare annotated CSV from source CSVs
-        run: python3 prepare_annotated_csv.py
+        run: python3 ./scripts/prepare_annotated_csv.py
 
       - name: Check and import previous monthly exports
-        run: python3 check_and_import_previous_exports.py
+        run: python3 ./scripts/check_and_import_previous_exports.py
 
       - name: Export aggregated data to clean CSVs and upload to Google Drive
-        run: python3 export_aggregated_to_csv.py
+        run: python3 ./scripts/export_aggregated_to_csv.py
 
       - name: Export raw data to annotated CSVs and upload to Google Drive
-        run: python3 export_raw_by_month.py
+        run: python3 ./scripts/export_raw_by_month.py
