@@ -105,9 +105,12 @@ while current <= end:
     month_str = current.strftime("%Y-%m")
     output_file = f"gdrive/nonadditive_{month_str}.annotated.csv"
 
+    start_str = current.strftime("%Y-%m-%dT%H:%M:%SZ")
+    stop_str = next_month.strftime("%Y-%m-%dT%H:%M:%SZ")
+
     flux_export = f'''
 from(bucket: "{BUCKET}")
-  |> range(start: {current.isoformat()}Z, stop: {next_month.isoformat()}Z)
+  |> range(start: {start_str}, stop: {stop_str})
   |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
 '''
 
@@ -117,11 +120,9 @@ from(bucket: "{BUCKET}")
         current = next_month
         continue
 
-    # Uložíme čisté CSV bez hlaviček pro snadný reimport
+    # Uložíme annotated CSV pro snadný reimport
     with open(output_file, "w", encoding="utf-8") as f:
-        lines = raw_output.splitlines()
-        # Ponecháme annotated CSV pro další import do Influxu
-        f.write("\n".join(lines))
+        f.write(raw_output)
 
     print(f"\n📤 Soubor exportován: {output_file}")
     with open(output_file, encoding="utf-8") as f:
