@@ -21,13 +21,21 @@ from(bucket: "{BUCKET}")
   |> limit(n:1)
 '''
     result = subprocess.run([
-        "influx", "query", "--org", ORG, "--token", TOKEN, "--url", URL, "--raw", "--execute", query
+        "influx", "query",
+        "--org", ORG,
+        "--token", TOKEN,
+        "--host", URL,
+        "--raw",
+        "--execute", query
     ], capture_output=True, text=True)
+
     if result.returncode != 0 or not result.stdout.strip():
         print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
         return None
+
     df = pd.read_csv(io.StringIO(result.stdout))
-    if df.empty or "_time" not in df.columns:
+    # Influx raw output má sloupce: result, table, _time
+    if "_time" not in df.columns or df.empty:
         print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
         return None
     return pd.to_datetime(df["_time"].iloc[0])
@@ -56,13 +64,14 @@ from(bucket: "{BUCKET}")
 '''
     with open("temp_raw_export.flux", "w") as f:
         f.write(flux)
+
     print(f"📤 Exportuji RAW {month_str} → {output_file}")
     with open(output_file, "w") as out:
         subprocess.run([
             "influx", "query",
             "--org", ORG,
             "--token", TOKEN,
-            "--url", URL,
+            "--host", URL,
             "--file", "temp_raw_export.flux",
             "--raw"
         ], stdout=out, check=True)
@@ -81,7 +90,9 @@ from(bucket: "{BUCKET}")
 
 # Upload na Google Drive
 print("\n☁️ Upload raw exportů na Google Drive")
-subprocess.run(["rclone", "copy", "gdrive/", "sm2drive:Influx/", "--include", "nonadditive_*.annotated.csv"], check=True)
+subprocess.run([
+    "rclone", "copy", "gdrive/", "sm2drive:Influx/", "--include", "nonadditive_*.annotated.csv"
+], check=True)
 
 print("\n✅ Export raw dat dokončen.")
 print("📦 Exportované soubory:")
