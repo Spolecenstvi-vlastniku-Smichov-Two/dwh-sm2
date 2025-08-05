@@ -99,7 +99,7 @@ jobs:
           influx query --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --host "$INFLUX_URL" 'from(bucket:"sensor_data") |> range(start: -1y) |> limit(n:5)'
     
       - name: Debug raw Influx data
-        run: python3 scripts/debug_influx_raw.py
+        run: python3 ./scripts/debug_influx_raw.py
 
       - name: Export aggregated data to clean CSVs and upload to Google Drive
         run: python3 ./scripts/export_aggregated_to_csv.py

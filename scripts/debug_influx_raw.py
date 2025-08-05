@@ -8,13 +8,17 @@ TOKEN = os.environ["INFLUX_TOKEN"]
 URL = os.environ["INFLUX_URL"]
 BUCKET = "sensor_data"
 
-query = f'''
+flux_query = f'''
 from(bucket: "{BUCKET}")
   |> range(start: -100y)
   |> limit(n:10)
 '''
 
-print("🔹 Spouštím jednoduchý dotaz pro prvních 10 řádků:\n", query)
+# uložíme query do dočasného souboru
+with open("temp_debug_query.flux", "w") as f:
+    f.write(flux_query)
+
+print("🔹 Spouštím jednoduchý dotaz pro prvních 10 řádků...")
 
 result = subprocess.run([
     "influx", "query",
@@ -22,7 +26,7 @@ result = subprocess.run([
     "--token", TOKEN,
     "--host", URL,
     "--raw",
-    "--execute", query
+    "--file", "temp_debug_query.flux"
 ], capture_output=True, text=True)
 
 if result.returncode != 0:
