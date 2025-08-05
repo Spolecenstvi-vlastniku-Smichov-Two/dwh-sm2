@@ -81,7 +81,7 @@ jobs:
       - name: Check and import previous monthly exports
         run: python3 ./scripts/check_and_import_previous_exports.py
 
-      - name: Import annotated CSV into InfluxDB (verbose)
+      - name: Import annotated CSV into InfluxDB with debug
         run: |
           influx write \
             --bucket sensor_data \
@@ -89,14 +89,15 @@ jobs:
             --token "$INFLUX_TOKEN" \
             --format csv \
             --file nonadditive_combined.annotated.csv \
+            --host "$INFLUX_URL" \
             --debug \
             --skipRowOnError
 
       - name: Verify bucket contents after write
         run: |
-          influx bucket list --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --url "$INFLUX_URL"
-          influx query --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --url "$INFLUX_URL" 'from(bucket:"sensor_data") |> range(start: -1y) |> limit(n:5)'
-
+          influx bucket list --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --host "$INFLUX_URL"
+          influx query --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --host "$INFLUX_URL" 'from(bucket:"sensor_data") |> range(start: -1y) |> limit(n:5)'
+          
       - name: Export aggregated data to clean CSVs and upload to Google Drive
         run: python3 ./scripts/export_aggregated_to_csv.py
 
