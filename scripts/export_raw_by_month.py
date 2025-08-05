@@ -16,6 +16,7 @@ def get_time_query(extreme: str):
 from(bucket: "{BUCKET}")
   |> range(start: -100y)
   |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
+  |> group(columns: [])
   |> sort(columns: ["_time"], {desc})
   |> limit(n:1)
 '''
