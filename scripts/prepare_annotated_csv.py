@@ -40,21 +40,26 @@ output_file = "nonadditive_combined.annotated.csv"
 with open(output_file, "w", newline='', encoding='utf-8') as f:
     writer = csv.writer(f)
     writer.writerow([
-        "#datatype","string","long","dateTime:RFC3339","string","string","string","string","double"
+        "#datatype","dateTime:RFC3339","string","string","string","string","double"
     ])
     writer.writerow([
-        "#group","false","false","false","true","true","true","true","false"
+        "#group","false","true","true","true","true","false"
     ])
     writer.writerow([
-        "#default","_result","","","","","","",""
+        "#default","","","","","",""
     ])
     writer.writerow([
-        "result","table","_time","_measurement","location","source","quantity","_field","_value"
+        "_time","_measurement","location","source","quantity","_field","_value"
     ])
-    for i, row in merged_df.iterrows():
+    for _, row in merged_df.iterrows():
         writer.writerow([
-            "_result", 0, row["_time"], "nonadditive", row["location"], row["source"],
-            row["quantity"], row["quantity"], row["_value"]
+            row["_time"],
+            "nonadditive",
+            row["location"],
+            row["source"],
+            row["quantity"],
+            row["quantity"],  # _field = quantity
+            row["_value"]
         ])
 
 # Debug: ukázka souboru
