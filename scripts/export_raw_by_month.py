@@ -26,6 +26,7 @@ from(bucket: "{BUCKET}")
         "--token", TOKEN,
         "--host", URL,
         "--raw",
+        "--hide-headers",  # ✅ aby Pandas dostal čisté CSV
         "--execute", query
     ], capture_output=True, text=True)
 
@@ -34,8 +35,8 @@ from(bucket: "{BUCKET}")
         return None
 
     # Debug: ukázka výstupu z influx CLI
-    print(f"\n🔹 Debug {extreme} čas - výstup influx CLI:")
-    print("\n".join(result.stdout.splitlines()[:10]))
+    print(f"\n🔹 Debug {extreme} čas - první řádky CSV:")
+    print("\n".join(result.stdout.splitlines()[:5]))
 
     df = pd.read_csv(io.StringIO(result.stdout))
     if "_time" not in df.columns or df.empty:
@@ -77,7 +78,8 @@ from(bucket: "{BUCKET}")
             "--token", TOKEN,
             "--host", URL,
             "--file", "temp_raw_export.flux",
-            "--raw"
+            "--raw",
+            "--hide-headers"
         ], stdout=out, check=True)
 
     # Debug: ukázka souboru
