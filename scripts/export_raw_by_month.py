@@ -11,6 +11,7 @@ BUCKET = "sensor_data"
 MEASUREMENT = "nonadditive"
 
 def get_time_query(extreme: str):
+    """Vrátí minimální nebo maximální čas (_time) z bucketu."""
     desc = "desc: true" if extreme == "max" else "desc: false"
     query = f'''
 from(bucket: "{BUCKET}")
@@ -27,7 +28,7 @@ from(bucket: "{BUCKET}")
         "--org", ORG,
         "--token", TOKEN,
         "--host", URL,
-        "--raw",  # zachová hlavičky
+        "--raw",
         "--execute", query
     ], capture_output=True, text=True)
 
@@ -35,12 +36,18 @@ from(bucket: "{BUCKET}")
         print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
         return None
 
-    # Debug: výpis prvních 10 řádků CLI
+    raw_output = result.stdout.strip()
     print(f"\n🔹 Debug CLI ({extreme} čas) - prvních 10 řádků:")
-    print("\n".join(result.stdout.splitlines()[:10]))
+    print("\n".join(raw_output.splitlines()[:10]))
 
-    # Přeskočíme první 3 řádky (#group, #datatype, #default)
-    df = pd.read_csv(io.StringIO(result.stdout), skiprows=3)
+    # Odstraníme první 3 řádky (#group, #datatype, #default)
+    lines = raw_output.splitlines()
+    if len(lines) <= 3:
+        print(f"⚠️ Výstup pro {extreme} čas obsahuje méně než 4 řádky.")
+        return None
+
+    csv_clean = "\n".join(lines[3:])
+    df = pd.read_csv(io.StringIO(csv_clean))
     if df.empty:
         print(f"⚠️ Pandas načetl prázdný DataFrame pro {extreme} čas.")
         return None
@@ -54,6 +61,7 @@ from(bucket: "{BUCKET}")
 
     return pd.to_datetime(df["_time"].iloc[0])
 
+# Zjištění min/max času
 start_ts = get_time_query("min")
 end_ts = get_time_query("max")
 
@@ -63,6 +71,7 @@ if start_ts is None or end_ts is None:
 
 print(f"\n✅ Detekován časový rozsah dat: {start_ts} → {end_ts}")
 
+# Export po měsících
 start = start_ts.replace(day=1)
 end = end_ts.replace(day=1)
 
