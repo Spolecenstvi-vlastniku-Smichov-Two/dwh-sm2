@@ -42,12 +42,25 @@ if not raw_output:
 print("\n🔹 Surový výstup CLI (prvních 20 řádků):")
 print("\n".join(raw_output.splitlines()[:20]))
 
+# Odstraníme první 3 řádky (#group, #datatype, #default)
+lines = raw_output.splitlines()
+if len(lines) <= 3:
+    print("⚠️ Výstup obsahuje méně než 4 řádky, nemohu načíst data.")
+    exit(0)
+
+clean_csv = "\n".join(lines[3:])
+
 # Pokus o načtení Pandasem
 try:
-    df = pd.read_csv(io.StringIO(raw_output))
-    print("\n🔹 Náhled Pandas DataFrame:")
+    df = pd.read_csv(io.StringIO(clean_csv))
+    print("\n🔹 Náhled Pandas DataFrame (po odstranění hlavičkových řádků):")
     print(df.head(10))
     print("\n🔹 Sloupce v DataFrame:")
     print(df.columns.tolist())
+
+    if "_time" in df.columns:
+        print("\n✅ Sloupec _time nalezen, teorie potvrzena.")
+    else:
+        print("\n⚠️ Sloupec _time nebyl nalezen, stále problém s hlavičkou.")
 except Exception as e:
     print("❌ Chyba při načítání CSV Pandasem:", e)
