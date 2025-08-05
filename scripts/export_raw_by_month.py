@@ -16,7 +16,6 @@ def get_time_query(extreme: str):
 from(bucket: "{BUCKET}")
   |> range(start: -100y)
   |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
-  |> keep(columns: ["_time","_field"])
   |> sort(columns: ["_time"], {desc})
   |> limit(n:1)
 '''
@@ -26,7 +25,7 @@ from(bucket: "{BUCKET}")
         "--token", TOKEN,
         "--host", URL,
         "--raw",
-        "--hide-headers",  # ✅ aby Pandas dostal čisté CSV
+        "--hide-headers",
         "--execute", query
     ], capture_output=True, text=True)
 
@@ -34,13 +33,13 @@ from(bucket: "{BUCKET}")
         print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
         return None
 
-    # Debug: ukázka výstupu z influx CLI
-    print(f"\n🔹 Debug {extreme} čas - první řádky CSV:")
+    # Debug: první řádky výstupu z CLI
+    print(f"\n🔹 Debug {extreme} čas - první řádky CLI:")
     print("\n".join(result.stdout.splitlines()[:5]))
 
     df = pd.read_csv(io.StringIO(result.stdout))
     if "_time" not in df.columns or df.empty:
-        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
+        print(f"⚠️ Žádná data pro {extreme} čas ani po načtení CSV.")
         return None
 
     return pd.to_datetime(df["_time"].iloc[0])
@@ -82,7 +81,7 @@ from(bucket: "{BUCKET}")
             "--hide-headers"
         ], stdout=out, check=True)
 
-    # Debug: ukázka souboru
+    # Debug: ukázka exportovaného souboru
     with open(output_file, encoding="utf-8") as f:
         print(f"\n📄 Náhled souboru {output_file}:")
         for i in range(10):
