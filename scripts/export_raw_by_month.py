@@ -10,18 +10,13 @@ URL = os.environ["INFLUX_URL"]
 BUCKET = "sensor_data"
 MEASUREMENT = "nonadditive"
 
-def get_time_query(extreme: str):
-    """Vrátí minimální nebo maximální čas (_time) z bucketu."""
-    desc = "desc: true" if extreme == "max" else "desc: false"
-    query = f'''
-from(bucket: "{BUCKET}")
-  |> range(start: -100y)
-  |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
-  |> group(columns: [])
-  |> sort(columns: ["_time"], {desc})
-  |> limit(n:1)
-'''
-    print(f"\n🔹 Spouštím dotaz pro {extreme} čas:\n{query}")
+def run_flux_query(flux_query: str, debug_label: str):
+    """Spustí Flux dotaz přes dočasný .flux soubor a vrátí surový výstup CLI."""
+    filename = f"temp_query_{debug_label}.flux"
+    with open(filename, "w") as f:
+        f.write(flux_query)
+
+    print(f"\n🔹 Spouštím Flux dotaz ({debug_label}):\n{flux_query}")
 
     result = subprocess.run([
         "influx", "query",
@@ -29,39 +24,66 @@ from(bucket: "{BUCKET}")
         "--token", TOKEN,
         "--host", URL,
         "--raw",
-        "--execute", query
+        "--file", filename
     ], capture_output=True, text=True)
 
-    if result.returncode != 0 or not result.stdout.strip():
-        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
+    if result.returncode != 0:
+        print(f"❌ Chyba při dotazu ({debug_label}):")
+        print(result.stderr)
         return None
 
-    raw_output = result.stdout.strip()
-    print(f"\n🔹 Debug CLI ({extreme} čas) - prvních 10 řádků:")
-    print("\n".join(raw_output.splitlines()[:10]))
+    output = result.stdout.strip()
+    if not output:
+        print(f"⚠️ Dotaz ({debug_label}) vrátil prázdný výstup.")
+        return None
 
-    # Odstraníme první 3 řádky (#group, #datatype, #default)
+    print(f"\n🔹 Surový výstup CLI ({debug_label}) - prvních 10 řádků:")
+    print("\n".join(output.splitlines()[:10]))
+    return output
+
+def parse_influx_csv(raw_output: str, label: str):
+    """Odstraní 3 hlavičkové řádky a vrátí Pandas DataFrame."""
     lines = raw_output.splitlines()
     if len(lines) <= 3:
-        print(f"⚠️ Výstup pro {extreme} čas obsahuje méně než 4 řádky.")
+        print(f"⚠️ Výstup pro {label} obsahuje méně než 4 řádky.")
         return None
 
     csv_clean = "\n".join(lines[3:])
     df = pd.read_csv(io.StringIO(csv_clean))
-    if df.empty:
-        print(f"⚠️ Pandas načetl prázdný DataFrame pro {extreme} čas.")
-        return None
-
-    print(f"\n🔹 Náhled DataFrame ({extreme} čas):")
+    print(f"\n🔹 Náhled DataFrame ({label}):")
     print(df.head())
 
     if "_time" not in df.columns:
-        print(f"⚠️ Sloupec _time nebyl nalezen v datech {extreme} čas.")
+        print(f"⚠️ Sloupec _time nebyl nalezen v datech {label}.")
+        return None
+    return df
+
+def get_time_query(extreme: str):
+    """Vrátí min/max čas z bucketu."""
+    desc = "desc: true" if extreme == "max" else "desc: false"
+    flux_query = f'''
+from(bucket: "{BUCKET}")
+  |> range(start: -100y)
+  |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
+  |> group(columns: [])
+  |> sort(columns: ["_time"], {desc})
+  |> limit(n:1)
+'''
+
+    raw_output = run_flux_query(flux_query, f"{extreme}_time")
+    if not raw_output:
+        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
+        return None
+
+    df = parse_influx_csv(raw_output, f"{extreme}_time")
+    if df is None or df.empty:
+        print(f"⚠️ Nepodařilo se načíst DataFrame pro {extreme} čas.")
         return None
 
     return pd.to_datetime(df["_time"].iloc[0])
 
-# Zjištění min/max času
+# --- Hlavní logika skriptu ---
+
 start_ts = get_time_query("min")
 end_ts = get_time_query("max")
 
@@ -83,29 +105,27 @@ while current <= end:
     month_str = current.strftime("%Y-%m")
     output_file = f"gdrive/nonadditive_{month_str}.annotated.csv"
 
-    flux = f'''
+    flux_export = f'''
 from(bucket: "{BUCKET}")
   |> range(start: {current.isoformat()}Z, stop: {next_month.isoformat()}Z)
   |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
 '''
-    with open("temp_raw_export.flux", "w") as f:
-        f.write(flux)
 
-    print(f"\n📤 Exportuji RAW {month_str} → {output_file}")
-    with open(output_file, "w") as out:
-        subprocess.run([
-            "influx", "query",
-            "--org", ORG,
-            "--token", TOKEN,
-            "--host", URL,
-            "--file", "temp_raw_export.flux",
-            "--raw",
-            "--hide-headers"  # čistý CSV export pro další import
-        ], stdout=out, check=True)
+    raw_output = run_flux_query(flux_export, f"export_{month_str}")
+    if not raw_output:
+        print(f"⚠️ Žádná data k exportu pro měsíc {month_str}, přeskočeno.")
+        current = next_month
+        continue
 
-    # Debug: ukázka exportovaného souboru
+    # Uložíme čisté CSV bez hlaviček pro snadný reimport
+    with open(output_file, "w", encoding="utf-8") as f:
+        lines = raw_output.splitlines()
+        # Ponecháme annotated CSV pro další import do Influxu
+        f.write("\n".join(lines))
+
+    print(f"\n📤 Soubor exportován: {output_file}")
     with open(output_file, encoding="utf-8") as f:
-        print(f"\n📄 Náhled souboru {output_file}:")
+        print(f"📄 Náhled {output_file}:")
         for i in range(10):
             line = f.readline()
             if not line:
