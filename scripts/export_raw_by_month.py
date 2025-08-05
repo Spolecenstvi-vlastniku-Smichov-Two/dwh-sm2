@@ -26,7 +26,7 @@ from(bucket: "{BUCKET}")
         "--org", ORG,
         "--token", TOKEN,
         "--host", URL,
-        "--raw",            # Hlavička musí zůstat
+        "--raw",  # zachová hlavičky
         "--execute", query
     ], capture_output=True, text=True)
 
@@ -35,10 +35,11 @@ from(bucket: "{BUCKET}")
         return None
 
     # Debug: výpis prvních 10 řádků CLI
-    print(f"\n🔹 Debug výstupu CLI ({extreme} čas) - prvních 10 řádků:")
+    print(f"\n🔹 Debug CLI ({extreme} čas) - prvních 10 řádků:")
     print("\n".join(result.stdout.splitlines()[:10]))
 
-    df = pd.read_csv(io.StringIO(result.stdout))
+    # Přeskočíme první 3 řádky (#group, #datatype, #default)
+    df = pd.read_csv(io.StringIO(result.stdout), skiprows=3)
     if df.empty:
         print(f"⚠️ Pandas načetl prázdný DataFrame pro {extreme} čas.")
         return None
@@ -89,10 +90,10 @@ from(bucket: "{BUCKET}")
             "--host", URL,
             "--file", "temp_raw_export.flux",
             "--raw",
-            "--hide-headers"  # čistý CSV pro export
+            "--hide-headers"  # čistý CSV export pro další import
         ], stdout=out, check=True)
 
-    # Debug: náhled exportovaného souboru
+    # Debug: ukázka exportovaného souboru
     with open(output_file, encoding="utf-8") as f:
         print(f"\n📄 Náhled souboru {output_file}:")
         for i in range(10):
