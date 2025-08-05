@@ -19,13 +19,14 @@ from(bucket: "{BUCKET}")
   |> sort(columns: ["_time"], {desc})
   |> limit(n:1)
 '''
+    print(f"\n🔹 Spouštím dotaz pro {extreme} čas:\n{query}")
+
     result = subprocess.run([
         "influx", "query",
         "--org", ORG,
         "--token", TOKEN,
         "--host", URL,
-        "--raw",
-        "--hide-headers",
+        "--raw",            # Hlavička musí zůstat
         "--execute", query
     ], capture_output=True, text=True)
 
@@ -33,13 +34,20 @@ from(bucket: "{BUCKET}")
         print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
         return None
 
-    # Debug: první řádky výstupu z CLI
-    print(f"\n🔹 Debug {extreme} čas - první řádky CLI:")
-    print("\n".join(result.stdout.splitlines()[:5]))
+    # Debug: výpis prvních 10 řádků CLI
+    print(f"\n🔹 Debug výstupu CLI ({extreme} čas) - prvních 10 řádků:")
+    print("\n".join(result.stdout.splitlines()[:10]))
 
     df = pd.read_csv(io.StringIO(result.stdout))
-    if "_time" not in df.columns or df.empty:
-        print(f"⚠️ Žádná data pro {extreme} čas ani po načtení CSV.")
+    if df.empty:
+        print(f"⚠️ Pandas načetl prázdný DataFrame pro {extreme} čas.")
+        return None
+
+    print(f"\n🔹 Náhled DataFrame ({extreme} čas):")
+    print(df.head())
+
+    if "_time" not in df.columns:
+        print(f"⚠️ Sloupec _time nebyl nalezen v datech {extreme} čas.")
         return None
 
     return pd.to_datetime(df["_time"].iloc[0])
@@ -51,6 +59,8 @@ if start_ts is None or end_ts is None:
     print("ℹ️ Raw bucket je prázdný, export se přeskočí.")
     exit(0)
 
+print(f"\n✅ Detekován časový rozsah dat: {start_ts} → {end_ts}")
+
 start = start_ts.replace(day=1)
 end = end_ts.replace(day=1)
 
@@ -61,6 +71,7 @@ while current <= end:
     next_month = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
     month_str = current.strftime("%Y-%m")
     output_file = f"gdrive/nonadditive_{month_str}.annotated.csv"
+
     flux = f'''
 from(bucket: "{BUCKET}")
   |> range(start: {current.isoformat()}Z, stop: {next_month.isoformat()}Z)
@@ -69,7 +80,7 @@ from(bucket: "{BUCKET}")
     with open("temp_raw_export.flux", "w") as f:
         f.write(flux)
 
-    print(f"📤 Exportuji RAW {month_str} → {output_file}")
+    print(f"\n📤 Exportuji RAW {month_str} → {output_file}")
     with open(output_file, "w") as out:
         subprocess.run([
             "influx", "query",
@@ -78,10 +89,10 @@ from(bucket: "{BUCKET}")
             "--host", URL,
             "--file", "temp_raw_export.flux",
             "--raw",
-            "--hide-headers"
+            "--hide-headers"  # čistý CSV pro export
         ], stdout=out, check=True)
 
-    # Debug: ukázka exportovaného souboru
+    # Debug: náhled exportovaného souboru
     with open(output_file, encoding="utf-8") as f:
         print(f"\n📄 Náhled souboru {output_file}:")
         for i in range(10):
