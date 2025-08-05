@@ -1,4 +1,3 @@
-
 import subprocess
 import pandas as pd
 from datetime import datetime, timedelta
@@ -39,7 +38,6 @@ while current <= end:
 from(bucket: "{BUCKET}")
   |> range(start: {current.isoformat()}Z, stop: {next_month.isoformat()}Z)
   |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
-  |> filter(fn: (r) => r._field == "value")
 '''
     with open("temp_raw_export.flux", "w") as f:
         f.write(flux)
@@ -57,3 +55,11 @@ from(bucket: "{BUCKET}")
 
 print("☁️ Upload raw exportů na Google Drive")
 subprocess.run(["rclone", "copy", "gdrive/", "sm2drive:Influx/", "--include", "nonadditive_*.annotated.csv"], check=True)
+
+print("\n📄 Náhled posledního exportu:")
+with open(output_file, encoding="utf-8") as f:
+    for i in range(10):
+        line = f.readline()
+        if not line:
+            break
+        print(line.strip())

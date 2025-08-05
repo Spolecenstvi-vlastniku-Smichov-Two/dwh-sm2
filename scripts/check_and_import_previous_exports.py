@@ -1,47 +1,38 @@
-
-import pandas as pd
-import subprocess
 import os
+import glob
+import subprocess
 
-ANNOTATED_FILE = "nonadditive_combined.annotated.csv"
-ORG = os.environ["INFLUX_ORG"]
-TOKEN = os.environ["INFLUX_TOKEN"]
-URL = os.environ["INFLUX_URL"]
-BUCKET = "sensor_data"
+raw_dir = "./gdrive/Influx/"
+csv_files = glob.glob(os.path.join(raw_dir, "**/*.csv"), recursive=True)
 
-print(f"\n🔍 Načítám: {ANNOTATED_FILE}")
-df = pd.read_csv(ANNOTATED_FILE, comment='#')
-df["_time"] = pd.to_datetime(df["_time"])
-min_month = df["_time"].min().to_period("M").strftime("%Y-%m")
-max_month = df["_time"].max().to_period("M").strftime("%Y-%m")
-months = pd.period_range(start=min_month, end=max_month, freq="M").strftime("%Y-%m").tolist()
+if not csv_files:
+    print("ℹ️ Žádné předchozí raw exporty ke kontrole/importu.")
+    exit(0)
 
-imported = False
-for month in months:
-    fname = os.path.join("gdrive", f"nonadditive_{month}.annotated.csv")
-    if os.path.exists(fname):
-        print(f"⬅️ Importuji starý export: {fname}")
-        subprocess.run([
-            "influx", "write",
-            "--bucket", BUCKET,
-            "--org", ORG,
-            "--token", TOKEN,
-            "--url", URL,
-            "--format", "csv",
-            "--file", fname
-        ], check=True)
-        imported = True
+print("\n📂 Nalezené CSV soubory k importu:")
+for csv_file in csv_files:
+    print("  ", csv_file)
 
-if not imported:
-    print("ℹ️ Žádné historické raw exporty nenalezeny. Pokračuji pouze s novým souborem.")
+for csv_file in csv_files:
+    if not os.path.exists(csv_file):
+        print(f"⚠️ Soubor {csv_file} neexistuje, přeskočeno.")
+        continue
+    if os.path.getsize(csv_file) == 0:
+        print(f"⚠️ Soubor {csv_file} je prázdný, přeskočeno.")
+        continue
 
-print(f"⬅️ Importuji nový soubor: {ANNOTATED_FILE}")
-subprocess.run([
-    "influx", "write",
-    "--bucket", BUCKET,
-    "--org", ORG,
-    "--token", TOKEN,
-    "--url", URL,
-    "--format", "csv",
-    "--file", ANNOTATED_FILE
-], check=True)
+    print(f"📥 Importuji {csv_file} do InfluxDB...")
+    result = subprocess.run([
+        "influx", "write",
+        "--bucket", "sensor_data",
+        "--org", os.environ.get("INFLUX_ORG", "ci-org"),
+        "--token", os.environ.get("INFLUX_TOKEN", ""),
+        "--format", "csv",
+        "--file", csv_file
+    ], capture_output=True, text=True)
+
+    if result.returncode != 0:
+        print(f"❌ Chyba při importu {csv_file}:")
+        print(result.stderr)
+    else:
+        print(f"✅ Soubor {csv_file} byl úspěšně importován.")
