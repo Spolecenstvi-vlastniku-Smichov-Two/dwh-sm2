@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import io
 import os
-import glob
 
 ORG = os.environ["INFLUX_ORG"]
 TOKEN = os.environ["INFLUX_TOKEN"]
@@ -11,7 +10,7 @@ URL = os.environ["INFLUX_URL"]
 BUCKET = "sensor_hourly"
 MEASUREMENT = "nonadditive_hourly"
 
-def get_time_query(extreme: str) -> pd.Timestamp:
+def get_time_query(extreme: str):
     desc = "desc: true" if extreme == "max" else "desc: false"
     query = f'''
 from(bucket: "{BUCKET}")
@@ -23,12 +22,25 @@ from(bucket: "{BUCKET}")
 '''
     result = subprocess.run([
         "influx", "query", "--org", ORG, "--token", TOKEN, "--url", URL, "--raw", "--execute", query
-    ], capture_output=True, text=True, check=True)
+    ], capture_output=True, text=True)
+    if result.returncode != 0 or not result.stdout.strip():
+        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
+        return None
     df = pd.read_csv(io.StringIO(result.stdout))
+    if df.empty or "_time" not in df.columns:
+        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
+        return None
     return pd.to_datetime(df["_time"].iloc[0])
 
-start = get_time_query("min").replace(day=1)
-end = get_time_query("max").replace(day=1)
+start_ts = get_time_query("min")
+end_ts = get_time_query("max")
+
+if start_ts is None or end_ts is None:
+    print("ℹ️ Agregovaný bucket je prázdný, export se přeskočí.")
+    exit(0)
+
+start = start_ts.replace(day=1)
+end = end_ts.replace(day=1)
 
 current = start
 generated_files = []
