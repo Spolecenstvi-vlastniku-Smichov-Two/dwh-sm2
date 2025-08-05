@@ -14,9 +14,9 @@ def get_time_query(extreme: str):
     desc = "desc: true" if extreme == "max" else "desc: false"
     query = f'''
 from(bucket: "{BUCKET}")
-  |> range(start: 0)
+  |> range(start: -100y)
   |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
-  |> keep(columns: ["_time"])
+  |> keep(columns: ["_time","_field"])
   |> sort(columns: ["_time"], {desc})
   |> limit(n:1)
 '''
@@ -33,11 +33,15 @@ from(bucket: "{BUCKET}")
         print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
         return None
 
+    # Debug: ukázka výstupu z influx CLI
+    print(f"\n🔹 Debug {extreme} čas - výstup influx CLI:")
+    print("\n".join(result.stdout.splitlines()[:10]))
+
     df = pd.read_csv(io.StringIO(result.stdout))
-    # Influx raw output má sloupce: result, table, _time
     if "_time" not in df.columns or df.empty:
         print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
         return None
+
     return pd.to_datetime(df["_time"].iloc[0])
 
 start_ts = get_time_query("min")
