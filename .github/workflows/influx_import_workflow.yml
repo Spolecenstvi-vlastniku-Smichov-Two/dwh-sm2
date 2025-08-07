@@ -85,8 +85,8 @@ jobs:
           fi
           for month in $(jq -r '.[]' months_to_process.json); do 
             echo "➡️ Kopíruji soubory pro měsíc $month"
-            rclone copyto "sm2drive:Influx/nonadditive_${month}.annotated.csv" "./gdrive/nonadditive_${month}.annotated.csv" || echo "⚠️ Soubor nonadditive pro měsíc $month nebyl nalezen."
-            rclone copyto "sm2drive:Influx/additive_${month}.annotated.csv" "./gdrive/additive_${month}.annotated.csv" || echo "⚠️ Soubor additive pro měsíc $month nebyl nalezen."
+            rclone copy sm2drive:Influx ./gdrive/ --include "additive_${month}.annotated.csv" || echo "⚠️ Soubor additive pro měsíc $month nebyl nalezen."
+            rclone copy sm2drive:Influx ./gdrive/ --include "nonadditive_${month}.annotated.csv" || echo "⚠️ Soubor nonadditive pro měsíc $month nebyl nalezen."
           done
 
       - name: Check and import previous monthly exports
