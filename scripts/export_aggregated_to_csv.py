@@ -15,17 +15,15 @@ def run_query(flux_query):
     result = subprocess.run(
         [
             "influx", "query",
-            "--org", ORG,
-            "--token", TOKEN,
+            f"--org={ORG}",
+            f"--token={TOKEN}",
             "--raw", "--output", "csv",
-            "--query", flux_query
+            f"--query={flux_query}"  # << OPRAVA ZDE
         ],
         capture_output=True, text=True
     )
-    if result.returncode != 0:
-        print(f"❌ Dotaz selhal:\n{result.stderr.strip()}")
-        return None
-    return result.stdout
+    return result
+
 
 def parse_csv_to_df(csv_output):
     try:
