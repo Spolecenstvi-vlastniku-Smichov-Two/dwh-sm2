@@ -29,10 +29,10 @@ def run_query_file(flux_query: str, label: str) -> str | None:
     res = subprocess.run(
         [
             "influx", "query",
-            f"--org={ORG}",
-            f"--token={TOKEN}",
-            f"--host={HOST}",
-            "--raw", "--output", "csv",
+            "--org", ORG,
+            "--token", TOKEN,
+            "--host", HOST,
+            "--raw",
             "--file", str(tmp_path),
         ],
         capture_output=True, text=True
