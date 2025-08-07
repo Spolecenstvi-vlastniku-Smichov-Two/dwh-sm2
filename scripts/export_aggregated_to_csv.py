@@ -1,96 +1,92 @@
-import os
 import subprocess
 import pandas as pd
-from io import StringIO
-from datetime import datetime
-from dateutil import tz
+from datetime import datetime, timedelta
+import io
+import os
 
-# Parametry prostředí
-bucket = "sensor_data"
-org = os.environ.get("INFLUX_ORG", "ci-org")
-token = os.environ.get("INFLUX_TOKEN", "")
-url = os.environ.get("INFLUX_URL", "http://localhost:8086")
+ORG = os.environ["INFLUX_ORG"]
+TOKEN = os.environ["INFLUX_TOKEN"]
+URL = os.environ["INFLUX_URL"]
+BUCKET = "sensor_hourly"
+MEASUREMENT = "nonadditive_hourly"
 
-# Výstupní složka
-output_dir = "./gdrive"
-os.makedirs(output_dir, exist_ok=True)
-
-# Definice měření a jejich agregací
-measurement_configs = {
-    "additive": "sum",
-    "nonadditive": "mean"
-}
-
-def process_measurement(measurement, aggregation):
-    print(f"\n📤 Spouštím dotaz pro {measurement} (fn: {aggregation})...")
-
+def get_time_query(extreme: str):
+    desc = "desc: true" if extreme == "max" else "desc: false"
     query = f'''
-from(bucket: "{bucket}")
+from(bucket: "{BUCKET}")
   |> range(start: 0)
-  |> filter(fn: (r) => r._measurement == "{measurement}")
-  |> aggregateWindow(every: 1h, fn: {aggregation}, createEmpty: false)
-  |> yield(name: "{aggregation}")
+  |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
+  |> keep(columns: ["_time"])
+  |> sort(columns: ["_time"], {desc})
+  |> limit(n:1)
 '''
-
     result = subprocess.run([
-        "influx", "query",
-        "--org", org,
-        "--token", token,
-        "--url", url,
-        "--raw",
-        "--format", "csv",
-        "--query", query
+        "influx", "query", "--org", ORG, "--token", TOKEN, "--url", URL, "--raw", "--execute", query
     ], capture_output=True, text=True)
+    if result.returncode != 0 or not result.stdout.strip():
+        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
+        return None
+    df = pd.read_csv(io.StringIO(result.stdout))
+    if df.empty or "_time" not in df.columns:
+        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
+        return None
+    return pd.to_datetime(df["_time"].iloc[0])
 
-    if result.returncode != 0:
-        print(f"❌ Dotaz pro {measurement} selhal:")
-        print(result.stderr)
-        return []
+start_ts = get_time_query("min")
+end_ts = get_time_query("max")
 
-    print(f"✅ Výsledky {measurement} načteny, zpracovávám...")
+if start_ts is None or end_ts is None:
+    print("ℹ️ Agregovaný bucket je prázdný, export se přeskočí.")
+    exit(0)
 
-    df = pd.read_csv(StringIO(result.stdout), comment='#')
-    if df.empty:
-        print(f"⚠️ Žádná data pro {measurement}.")
-        return []
+start = start_ts.replace(day=1)
+end = end_ts.replace(day=1)
 
-    # Čas do lokalního pásma
-    df['_time'] = pd.to_datetime(df['_time']).dt.tz_localize('UTC').dt.tz_convert('Europe/Prague')
-    df['month'] = df['_time'].dt.strftime('%Y-%m')
+current = start
+generated_files = []
 
-    exported_files = []
+while current <= end:
+    next_month = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_str = current.strftime("%Y-%m")
+    output_file = f"gdrive/nonadditive_hourly_{month_str}.csv"
+    flux = f'''
+from(bucket: "{BUCKET}")
+  |> range(start: {current.isoformat()}Z, stop: {next_month.isoformat()}Z)
+  |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
+  |> filter(fn: (r) => r._field == "value")
+  |> keep(columns: ["_time","_value","location","quantity","source"])
+'''
+    with open("temp_agg_export.flux", "w") as f:
+        f.write(flux)
 
-    for month, group in df.groupby('month'):
-        filename = f"{measurement}_hourly_{month}.csv"
-        output_path = os.path.join(output_dir, filename)
-        group.drop(columns=['month'], inplace=True)
-        group.to_csv(output_path, index=False)
-        exported_files.append(filename)
-        print(f"💾 Uložen: {output_path}")
+    print(f"📤 Exportuji agregovaná data {month_str} → {output_file}")
+    with open(output_file, "w") as out:
+        subprocess.run([
+            "influx", "query",
+            "--org", ORG,
+            "--token", TOKEN,
+            "--url", URL,
+            "--file", "temp_agg_export.flux",
+            "--raw"
+        ], stdout=out, check=True)
 
-    return exported_files
+    # Debug: ukázka souboru
+    with open(output_file, encoding="utf-8") as f:
+        print(f"\n📄 Náhled souboru {output_file}:")
+        for i in range(10):
+            line = f.readline()
+            if not line:
+                break
+            print(line.strip())
 
-# Zpracování všech měření
-all_exported_files = []
+    generated_files.append(output_file)
+    current = next_month
 
-for measurement, agg_func in measurement_configs.items():
-    exported = process_measurement(measurement, agg_func)
-    all_exported_files.extend(exported)
+# Upload na Google Drive
+print("\n☁️ Upload aggregated CSV na Google Drive")
+subprocess.run(["rclone", "copy", "gdrive/", "sm2drive:Influx/", "--include", "nonadditive_hourly_*.csv"], check=True)
 
-# Upload všech souborů na Google Drive
-if all_exported_files:
-    print("\n🚀 Uploaduji na Google Drive (sm2drive:Normalized/)...")
-    upload = subprocess.run([
-        "rclone", "copy",
-        output_dir,
-        "sm2drive:Normalized/",
-        "--include", "*_hourly_*.csv"
-    ], capture_output=True, text=True)
-
-    if upload.returncode != 0:
-        print("❌ Upload selhal:")
-        print(upload.stderr)
-    else:
-        print("✅ Upload na Google Drive byl úspěšný.")
-else:
-    print("ℹ️ Nebyly vytvořeny žádné soubory k uploadu.")
+print("\n✅ Export agregovaných dat dokončen.")
+print("📦 Exportované soubory:")
+for file in generated_files:
+    print("  ", file)
