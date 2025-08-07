@@ -1,9 +1,9 @@
+# scripts/export_aggregated_to_csv.py
 import os
 import subprocess
 import pandas as pd
 from pathlib import Path
 from io import StringIO
-from datetime import datetime
 
 # --- Konfigurace ---
 ORG   = os.getenv("INFLUX_ORG", "ci-org")
@@ -11,15 +11,12 @@ TOKEN = os.getenv("INFLUX_TOKEN", "ci-secret-token")
 HOST  = os.getenv("INFLUX_URL", "http://localhost:8086")  # použijeme --host
 BUCKET = "sensor_data"
 EXPORT_DIR = "./gdrive"
-GDRIVE_REMOTE = "sm2drive:Influx"  # cílový vzdálený adresář v rclone
+GDRIVE_REMOTE = "sm2drive:Normalized"  # kam pushnout agregované CSV
 
 Path(EXPORT_DIR).mkdir(parents=True, exist_ok=True)
 
 def run_query_file(flux_query: str, label: str) -> str | None:
-    """
-    Zapíše flux do temp souboru a spustí 'influx query --file'.
-    Vrací stdout (CSV s #group/#datatype hlavičkami) nebo None při chybě.
-    """
+    """Zapíše flux do temp souboru a spustí 'influx query --file'. Vrací stdout (CSV) nebo None."""
     tmp_path = Path(f"tmp_{label}.flux")
     tmp_path.write_text(flux_query, encoding="utf-8")
 
@@ -49,10 +46,7 @@ def run_query_file(flux_query: str, label: str) -> str | None:
     return res.stdout
 
 def parse_influx_csv(csv_text: str) -> pd.DataFrame:
-    """
-    Načte CSV z Influx CLI. Komentáře (#group/#datatype/#default) necháme parsovat
-    přímo Pandasem; v moderní verzi CLI to funguje korektně.
-    """
+    """Načte CSV z Influx CLI; komentáře (#group/#datatype/#default) ignoruje."""
     try:
         df = pd.read_csv(StringIO(csv_text), comment="#")
         return df
@@ -61,10 +55,7 @@ def parse_influx_csv(csv_text: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 def get_min_max_time(measurement: str) -> tuple[str | None, str | None]:
-    """
-    Zjistí minimální a maximální _time v bucketu pro dané measurement.
-    Vrací ISO stringy (RFC3339) nebo (None, None).
-    """
+    """Zjistí minimální a maximální _time v bucketu pro dané measurement. Vrací ISO stringy."""
     print("🔹 Zjišťuji rozsah časů...")
 
     q_min = f"""
@@ -102,23 +93,63 @@ from(bucket: "{BUCKET}")
     print(f"✅ Rozsah {measurement}: {min_time} → {max_time}")
     return min_time, max_time
 
+def clean_and_write_monthly(df: pd.DataFrame, measurement: str) -> list[str]:
+    """Přejmenuje sloupce, vybere požadované a uloží po měsících."""
+    if df.empty:
+        return []
+
+    # Přejmenování a výběr sloupců
+    rename_map = {"_time": "time", "_value": "value", "_measurement": "measurement"}
+    df = df.rename(columns=rename_map)
+    needed = ["time", "value", "measurement", "location", "quantity", "source"]
+    # některé zdroje nemusí mít všechny tagy – ošetřit chybějící:
+    for col in needed:
+        if col not in df.columns:
+            df[col] = pd.NA
+    df = df[needed].copy()
+
+    # Rozdělení po měsících
+    df["time"] = pd.to_datetime(df["time"], errors="coerce", utc=True)
+    df = df.dropna(subset=["time"])
+    if df.empty:
+        return []
+
+    df["year_month"] = df["time"].dt.strftime("%Y-%m")
+    out_files: list[str] = []
+
+    for ym, g in df.groupby("year_month"):
+        g2 = g.drop(columns=["year_month"]).copy()
+        fname = f"{measurement}_{ym}.hourly.csv"
+        fpath = str(Path(EXPORT_DIR) / fname)
+        g2.to_csv(fpath, index=False)
+        print(f"✅ Uloženo: {fpath}")
+
+        # Upload na GDrive
+        rc = subprocess.run(["rclone", "copyto", fpath, f"{GDRIVE_REMOTE}/{fname}"],
+                            capture_output=True, text=True)
+        if rc.returncode != 0:
+            print(f"⚠️ Upload selhal pro {fname}: {rc.stderr.strip()}")
+        else:
+            print(f"☁️ Upload hotov: {GDRIVE_REMOTE}/{fname}")
+
+        out_files.append(fpath)
+
+    return out_files
+
 def export_measurement_hourly(measurement: str, fn: str) -> list[str]:
-    """
-    Agregace 1h pro dané measurement a uložení do měsíčních CSV (čistý CSV).
-    """
+    """Agregace 1h pro dané measurement a uložení do měsíčních CSV (čisté CSV)."""
     print(f"\n📤 Agreguji '{measurement}' (fn: {fn}) ...")
     t_min, t_max = get_min_max_time(measurement)
     if not t_min or not t_max:
         print(f"ℹ️ Measurement '{measurement}' nemá data – přeskočeno.")
         return []
 
-    # hlavní dotaz na celé období
     q = f"""
 from(bucket: "{BUCKET}")
   |> range(start: time(v: "{t_min}"), stop: time(v: "{t_max}"))
   |> filter(fn: (r) => r._measurement == "{measurement}")
   |> aggregateWindow(every: 1h, fn: {fn}, createEmpty: false)
-  |> keep(columns: ["_time","_value","location","quantity","source","_field","_measurement"])
+  |> keep(columns: ["_time","_value","_measurement","location","quantity","source"])
   |> yield(name: "hourly")
 """
     out = run_query_file(q, f"{measurement}_hourly")
@@ -131,36 +162,7 @@ from(bucket: "{BUCKET}")
         print(f"⚠️ Výsledný DataFrame pro '{measurement}' je prázdný.")
         return []
 
-    # rozdělení na měsíce a čistý CSV výstup
-    df["_time"] = pd.to_datetime(df["_time"], errors="coerce", utc=True)
-    df = df.dropna(subset=["_time"]).copy()
-    if df.empty:
-        print(f"⚠️ Po očištění časů nemá '{measurement}' žádná data.")
-        return []
-
-    df["year_month"] = df["_time"].dt.strftime("%Y-%m")
-    out_files: list[str] = []
-
-    for ym, g in df.groupby("year_month"):
-        # čisté CSV bez influx meta hlaviček, vhodné pro Pandas:
-        g2 = g.drop(columns=["year_month"]).copy()
-        # volitelně můžeme přejmenovat _value -> value
-        g2 = g2.rename(columns={"_value": "value"})
-        fname = f"{measurement}_{ym}.hourly.csv"
-        fpath = str(Path(EXPORT_DIR) / fname)
-        g2.to_csv(fpath, index=False)
-        print(f"✅ Uloženo: {fpath}")
-
-        # upload na GDrive (copyto zajistí přímé umístění, bez skenování adresáře)
-        rc = subprocess.run(["rclone", "copyto", fpath, f"{GDRIVE_REMOTE}/{fname}"], capture_output=True, text=True)
-        if rc.returncode != 0:
-            print(f"⚠️ Upload selhal pro {fname}: {rc.stderr.strip()}")
-        else:
-            print(f"☁️ Upload hotov: {GDRIVE_REMOTE}/{fname}")
-
-        out_files.append(fpath)
-
-    return out_files
+    return clean_and_write_monthly(df, measurement)
 
 def main():
     created: list[str] = []
