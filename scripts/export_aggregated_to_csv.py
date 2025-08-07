@@ -1,124 +1,131 @@
+
 import os
 import subprocess
-import csv
-from io import StringIO
-from pathlib import Path
+import pandas as pd
 from datetime import datetime
-import json
+from pathlib import Path
 
-# Nastavení prostředí
-ORG = os.environ.get("INFLUX_ORG", "ci-org")
-TOKEN = os.environ.get("INFLUX_TOKEN", "")
-EXPORT_DIR = "./exports_hourly"
-REMOTE_DIR = "sm2drive:Influx"
-
-# Zajistí, že adresář existuje
-Path(EXPORT_DIR).mkdir(parents=True, exist_ok=True)
+# Konfigurace
+ORG = os.getenv("INFLUX_ORG", "ci-org")
+TOKEN = os.getenv("INFLUX_TOKEN", "ci-secret-token")
+BUCKET = "sensor_data"
+EXPORT_DIR = "./gdrive"
 
 def run_query(flux_query):
-    return subprocess.run(
+    result = subprocess.run(
         [
             "influx", "query",
             "--org", ORG,
             "--token", TOKEN,
             "--raw", "--output", "csv",
-            "--execute", flux_query
+            "--query", flux_query
         ],
         capture_output=True, text=True
     )
-
-def parse_first_time_from_query(result):
-    if result.returncode != 0 or not result.stdout.strip():
+    if result.returncode != 0:
+        print(f"❌ Dotaz selhal:\n{result.stderr.strip()}")
         return None
+    return result.stdout
 
-    f = StringIO(result.stdout)
-    reader = csv.DictReader(f)
-    for row in reader:
-        return row.get("_time")
-    return None
+def parse_csv_to_df(csv_output):
+    try:
+        from io import StringIO
+        df = pd.read_csv(StringIO(csv_output), comment="#")
+        return df
+    except Exception as e:
+        print(f"❌ Chyba při čtení CSV: {e}")
+        return pd.DataFrame()
 
 def get_min_max_time():
     print("🔹 Zjišťuji rozsah časů...")
 
-    min_result = run_query(
-        'from(bucket: "sensor_data") |> range(start: 0) |> keep(columns: ["_time"]) |> sort(columns: ["_time"], desc: false) |> limit(n:1)'
-    )
-    max_result = run_query(
-        'from(bucket: "sensor_data") |> range(start: 0) |> keep(columns: ["_time"]) |> sort(columns: ["_time"], desc: true) |> limit(n:1)'
-    )
+    min_query = f'''
+from(bucket: "{BUCKET}")
+  |> range(start: -100y)
+  |> keep(columns: ["_time"])
+  |> sort(columns: ["_time"])
+  |> limit(n:1)
+'''
+    max_query = f'''
+from(bucket: "{BUCKET}")
+  |> range(start: -100y)
+  |> keep(columns: ["_time"])
+  |> sort(columns: ["_time"], desc: true)
+  |> limit(n:1)
+'''
 
-    min_time = parse_first_time_from_query(min_result)
-    max_time = parse_first_time_from_query(max_result)
+    min_output = run_query(min_query)
+    max_output = run_query(max_query)
 
-    if not min_time or not max_time:
+    if not min_output or not max_output:
         print("⚠️ Žádná data pro min/max čas. Pravděpodobně bucket prázdný.")
         return None, None
 
-    print(f"🕓 Časový rozsah: {min_time} – {max_time}")
-    return min_time, max_time
+    min_df = parse_csv_to_df(min_output)
+    max_df = parse_csv_to_df(max_output)
 
-def split_csv_by_month(csv_text, measurement_type):
-    rows_by_month = {}
-    f = StringIO(csv_text)
-    reader = csv.DictReader(f)
-    for row in reader:
-        timestamp = row["_time"]
-        month = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m")
-        rows_by_month.setdefault(month, []).append(row)
+    if "_time" not in min_df.columns or "_time" not in max_df.columns:
+        print("⚠️ Žádná data pro min/max čas. Pravděpodobně bucket prázdný.")
+        return None, None
 
-    written_files = []
-    for month, rows in rows_by_month.items():
-        output_file = os.path.join(EXPORT_DIR, f"{measurement_type}_{month}.hourly.csv")
-        with open(output_file, "w", newline="") as f_out:
-            writer = csv.DictWriter(f_out, fieldnames=reader.fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-        print(f"✅ Exportováno: {output_file}")
-        written_files.append(output_file)
+    return min_df["_time"].iloc[0], max_df["_time"].iloc[0]
 
-    return written_files
-
-def export_measurement(measurement_type, agg_func):
-    print(f"\n📤 Spouštím dotaz pro {measurement_type} (fn: {agg_func})...")
-
+def export_measurement(measurement_type, aggregation_fn):
+    print(f"📤 Spouštím dotaz pro {measurement_type} (fn: {aggregation_fn})...")
     min_time, max_time = get_min_max_time()
     if not min_time or not max_time:
         return []
 
-    flux_query = f'''
-    from(bucket: "sensor_data")
-        |> range(start: time(v: "{min_time}"), stop: time(v: "{max_time}"))
-        |> filter(fn: (r) => r._measurement == "{measurement_type}")
-        |> aggregateWindow(every: 1h, fn: {agg_func}, createEmpty: false)
-        |> yield()
-    '''.strip()
+    query = f'''
+from(bucket: "{BUCKET}")
+  |> range(start: time(v: "{min_time}"), stop: time(v: "{max_time}"))
+  |> filter(fn: (r) => r._measurement == "{measurement_type}")
+  |> aggregateWindow(every: 1h, fn: {aggregation_fn}, createEmpty: false)
+  |> yield(name: "hourly")
+'''
 
-    result = run_query(flux_query)
-    if result.returncode != 0:
-        print(f"❌ Dotaz selhal:\n{result.stderr}")
+    output = run_query(query)
+    if not output:
         return []
 
-    if not result.stdout.strip():
-        print("⚠️ Výsledek je prázdný.")
+    df = parse_csv_to_df(output)
+    if df.empty or "_time" not in df.columns:
+        print(f"⚠️ Výsledek pro {measurement_type} je prázdný nebo neobsahuje sloupec _time.")
         return []
 
-    return split_csv_by_month(result.stdout, measurement_type)
+    df["_time"] = pd.to_datetime(df["_time"])
+    df["month"] = df["_time"].dt.strftime("%Y-%m")
+    files = []
 
-def upload_to_drive(files):
-    for file_path in files:
-        filename = os.path.basename(file_path)
-        print(f"☁️ Upload na Google Drive: {filename}")
-        subprocess.run(["rclone", "copy", file_path, REMOTE_DIR])
+    for month, group in df.groupby("month"):
+        filename = f"{measurement_type}_{month}.hourly.csv"
+        filepath = os.path.join(EXPORT_DIR, filename)
+        group.drop(columns=["month"], inplace=True)
+        group.to_csv(filepath, index=False)
+        print(f"✅ Uložen soubor: {filename}")
+        files.append(filepath)
+
+    return files
+
+def upload_to_drive(filepath):
+    filename = os.path.basename(filepath)
+    remote_path = f"sm2drive:Influx/{filename}"
+    print(f"☁️ Upload na Google Drive: {filename}")
+    subprocess.run(["rclone", "copy", filepath, remote_path])
 
 def main():
+    Path(EXPORT_DIR).mkdir(parents=True, exist_ok=True)
+
     exported_files = []
     exported_files += export_measurement("additive", "sum")
     exported_files += export_measurement("nonadditive", "mean")
 
-    if exported_files:
-        upload_to_drive(exported_files)
-    else:
+    if not exported_files:
         print("ℹ️ Nebyly vytvořeny žádné soubory k uploadu.")
+        return
+
+    for f in exported_files:
+        upload_to_drive(f)
 
 if __name__ == "__main__":
     main()

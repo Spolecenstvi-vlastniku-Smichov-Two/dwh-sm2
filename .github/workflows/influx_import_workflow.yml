@@ -92,6 +92,12 @@ jobs:
       - name: Check and import previous monthly exports
         run: python3 ./scripts/check_and_import_previous_exports.py
 
+      - name: Remove imported CSVs
+        run: |
+          echo "🗑️ Odstraňuji zpracované soubory"
+          rm -f ./gdrive/Influx/additive_*.annotated.csv
+          rm -f ./gdrive/Influx/nonadditive_*.annotated.csv
+
       - name: Import annotated CSV into InfluxDB with debug
         run: |
           influx write \

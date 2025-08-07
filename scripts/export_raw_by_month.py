@@ -103,7 +103,7 @@ generated_files = []
 while current <= end:
     next_month = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
     month_str = current.strftime("%Y-%m")
-    output_file = f"gdrive/nonadditive_{month_str}.annotated.csv"
+    output_file = f"gdrive/Influx/nonadditive_{month_str}.annotated.csv"
 
     start_str = current.strftime("%Y-%m-%dT%H:%M:%SZ")
     stop_str = next_month.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -139,7 +139,7 @@ from(bucket: "{BUCKET}")
 # Upload na Google Drive
 print("\n☁️ Upload raw exportů na Google Drive")
 subprocess.run([
-    "rclone", "copy", "gdrive/", "sm2drive:Influx/", "--include", "nonadditive_*.annotated.csv"
+    "rclone", "copy", "gdrive/Influx/", "sm2drive:Influx/", "--include", "*additive_*.annotated.csv"
 ], check=True)
 
 print("\n✅ Export raw dat dokončen.")
