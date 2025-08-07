@@ -42,10 +42,11 @@ def run_query(flux_query):
             "--org", ORG,
             "--token", TOKEN,
             "--raw", "--output", "csv",
-            "--query", flux_query
+            "--execute", flux_query  
         ],
         capture_output=True, text=True
     )
+    return result
 
     if result.returncode != 0:
         print("❌ Dotaz selhal:")
