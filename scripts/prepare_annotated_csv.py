@@ -1,6 +1,7 @@
 import pandas as pd
 import csv
 import os
+import json
 
 mapping_df = pd.read_csv("./seeds/mapping_sources.csv", encoding="utf-8-sig")
 all_data = []
@@ -70,3 +71,16 @@ with open(output_file, encoding="utf-8") as f:
         if not line:
             break
         print(line.strip())
+
+# --- Nově přidáno: zjištění unikátních měsíců ve vstupních datech ---
+merged_df["_time_dt"] = pd.to_datetime(merged_df["_time"])
+merged_df["year_month"] = merged_df["_time_dt"].dt.to_period("M").astype(str)
+
+unique_months = sorted(merged_df["year_month"].unique())
+print("\n📅 Detekované měsíce v datech:")
+for month in unique_months:
+    print(f" - {month}")
+
+# 💾 Uložení seznamu měsíců do JSON
+with open("months_to_process.json", "w") as f:
+    json.dump(unique_months, f, indent=2)
