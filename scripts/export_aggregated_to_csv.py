@@ -1,92 +1,119 @@
-import subprocess
-import pandas as pd
-from datetime import datetime, timedelta
-import io
+
 import os
+import subprocess
+import csv
+from datetime import datetime
+from collections import defaultdict
 
-ORG = os.environ["INFLUX_ORG"]
-TOKEN = os.environ["INFLUX_TOKEN"]
-URL = os.environ["INFLUX_URL"]
-BUCKET = "sensor_hourly"
-MEASUREMENT = "nonadditive_hourly"
+ORG = os.environ.get("INFLUX_ORG", "ci-org")
+TOKEN = os.environ.get("INFLUX_TOKEN", "")
+URL = os.environ.get("INFLUX_URL", "http://localhost:8086")
 
-def get_time_query(extreme: str):
-    desc = "desc: true" if extreme == "max" else "desc: false"
-    query = f'''
-from(bucket: "{BUCKET}")
-  |> range(start: 0)
-  |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
-  |> keep(columns: ["_time"])
-  |> sort(columns: ["_time"], {desc})
+EXPORT_DIR = "./exports"
+Path(EXPORT_DIR).mkdir(parents=True, exist_ok=True)
+
+def get_min_max_time():
+    base_query = '''
+from(bucket: "sensor_data")
+  |> range(start: -100y)
+  |> filter(fn: (r) => r._measurement == "{measurement}")
+  |> group(columns: [])
+  |> sort(columns: ["_time"], desc: {desc})
   |> limit(n:1)
 '''
-    result = subprocess.run([
-        "influx", "query", "--org", ORG, "--token", TOKEN, "--url", URL, "--raw", "--execute", query
-    ], capture_output=True, text=True)
-    if result.returncode != 0 or not result.stdout.strip():
-        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
-        return None
-    df = pd.read_csv(io.StringIO(result.stdout))
-    if df.empty or "_time" not in df.columns:
-        print(f"⚠️ Žádná data pro {extreme} čas. Pravděpodobně bucket prázdný.")
-        return None
-    return pd.to_datetime(df["_time"].iloc[0])
 
-start_ts = get_time_query("min")
-end_ts = get_time_query("max")
+    min_query = base_query.format(measurement="nonadditive", desc="false")
+    max_query = base_query.format(measurement="nonadditive", desc="true")
 
-if start_ts is None or end_ts is None:
-    print("ℹ️ Agregovaný bucket je prázdný, export se přeskočí.")
-    exit(0)
+    min_time = run_query(min_query)
+    max_time = run_query(max_query)
 
-start = start_ts.replace(day=1)
-end = end_ts.replace(day=1)
+    if not min_time or not max_time:
+        print("⚠️ Žádná data pro min/max čas. Pravděpodobně bucket prázdný.")
+        return None, None
 
-current = start
-generated_files = []
+    return min_time[0]["_time"], max_time[0]["_time"]
 
-while current <= end:
-    next_month = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
-    month_str = current.strftime("%Y-%m")
-    output_file = f"gdrive/nonadditive_hourly_{month_str}.csv"
-    flux = f'''
-from(bucket: "{BUCKET}")
-  |> range(start: {current.isoformat()}Z, stop: {next_month.isoformat()}Z)
-  |> filter(fn: (r) => r._measurement == "{MEASUREMENT}")
-  |> filter(fn: (r) => r._field == "value")
-  |> keep(columns: ["_time","_value","location","quantity","source"])
-'''
-    with open("temp_agg_export.flux", "w") as f:
-        f.write(flux)
-
-    print(f"📤 Exportuji agregovaná data {month_str} → {output_file}")
-    with open(output_file, "w") as out:
-        subprocess.run([
+def run_query(flux_query):
+    result = subprocess.run(
+        [
             "influx", "query",
             "--org", ORG,
             "--token", TOKEN,
-            "--url", URL,
-            "--file", "temp_agg_export.flux",
-            "--raw"
-        ], stdout=out, check=True)
+            "--raw", "--output", "csv",
+            "--query", flux_query
+        ],
+        capture_output=True, text=True
+    )
 
-    # Debug: ukázka souboru
-    with open(output_file, encoding="utf-8") as f:
-        print(f"\n📄 Náhled souboru {output_file}:")
-        for i in range(10):
-            line = f.readline()
-            if not line:
-                break
-            print(line.strip())
+    if result.returncode != 0:
+        print("❌ Dotaz selhal:")
+        print(result.stderr)
+        return []
 
-    generated_files.append(output_file)
-    current = next_month
+    lines = result.stdout.strip().split("\n")
+    reader = csv.DictReader(lines)
+    return list(reader)
 
-# Upload na Google Drive
-print("\n☁️ Upload aggregated CSV na Google Drive")
-subprocess.run(["rclone", "copy", "gdrive/", "sm2drive:Influx/", "--include", "nonadditive_hourly_*.csv"], check=True)
+def export_measurement(measurement, agg_fn):
+    print(f"📤 Spouštím dotaz pro {measurement} (fn: {agg_fn})...")
 
-print("\n✅ Export agregovaných dat dokončen.")
-print("📦 Exportované soubory:")
-for file in generated_files:
-    print("  ", file)
+    min_time, max_time = get_min_max_time()
+    if not min_time or not max_time:
+        return []
+
+    flux_query = f'''
+from(bucket: "sensor_data")
+  |> range(start: time(v: "{min_time}"), stop: time(v: "{max_time}"))
+  |> filter(fn: (r) => r._measurement == "{measurement}")
+  |> aggregateWindow(every: 1h, fn: {agg_fn}, createEmpty: false)
+  |> yield(name: "hourly")
+'''
+
+    rows = run_query(flux_query)
+    if not rows:
+        print(f"⚠️ Žádná data pro {measurement}")
+        return []
+
+    output_by_month = defaultdict(list)
+    for row in rows:
+        try:
+            timestamp = datetime.fromisoformat(row["_time"].replace("Z", "+00:00"))
+            month = timestamp.strftime("%Y-%m")
+            output_by_month[month].append(row)
+        except Exception as e:
+            print(f"⚠️ Chyba při zpracování řádku: {e}")
+
+    uploaded_files = []
+    for month, records in output_by_month.items():
+        filename = f"{measurement}_{month}.hourly.csv"
+        filepath = os.path.join(EXPORT_DIR, filename)
+
+        with open(filepath, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=records[0].keys())
+            writer.writeheader()
+            writer.writerows(records)
+
+        print(f"✅ Exportováno {len(records)} řádků do {filepath}")
+
+        # Upload to Google Drive
+        gdrive_path = f"sm2drive:Influx/{filename}"
+        upload_result = subprocess.run(["rclone", "copy", filepath, gdrive_path])
+        if upload_result.returncode == 0:
+            print(f"☁️  Nahráno na {gdrive_path}")
+            uploaded_files.append(filepath)
+        else:
+            print(f"⚠️  Upload na {gdrive_path} selhal.")
+
+    return uploaded_files
+
+def main():
+    exported_files = []
+    exported_files += export_measurement("additive", "sum")
+    exported_files += export_measurement("nonadditive", "mean")
+
+    if not exported_files:
+        print("ℹ️ Nebyly vytvořeny žádné soubory k uploadu.")
+
+if __name__ == "__main__":
+    main()
