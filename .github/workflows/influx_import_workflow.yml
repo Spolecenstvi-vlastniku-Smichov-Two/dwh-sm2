@@ -87,7 +87,6 @@ jobs:
             echo "➡️ Kopíruji soubory pro měsíc $month"
             rclone copy sm2drive:Influx ./gdrive/Influx/ --include "additive_${month}.annotated.csv" || echo "⚠️ Soubor additive pro měsíc $month nebyl nalezen."
             rclone copy sm2drive:Influx ./gdrive/Influx/ --include "nonadditive_${month}.annotated.csv" || echo "⚠️ Soubor nonadditive pro měsíc $month nebyl nalezen."
-            ls -l ./gdrive/Influx/
           done
 
       - name: Check and import previous monthly exports

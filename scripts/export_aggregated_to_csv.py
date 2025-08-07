@@ -4,6 +4,7 @@ import subprocess
 import csv
 from datetime import datetime
 from collections import defaultdict
+from pathlib import Path
 
 ORG = os.environ.get("INFLUX_ORG", "ci-org")
 TOKEN = os.environ.get("INFLUX_TOKEN", "")
