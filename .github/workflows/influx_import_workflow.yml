@@ -73,10 +73,21 @@ jobs:
         run: |
           rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
           rclone copy sm2drive:Indoor/Model/ ./gdrive/
-          rclone copy sm2drive:Influx/ ./gdrive/
 
       - name: Prepare annotated CSV from source CSVs
         run: python3 ./scripts/prepare_annotated_csv.py
+
+      - name: 📥 Stáhni pouze soubory pro plovoucí měsíce z Google Drive
+        run: |
+          echo "📅 Načítám seznam měsíců z months_to_process.json"
+          if [ ! -f months_to_process.json ]; then
+            echo "❌ Soubor months_to_process.json neexistuje"; exit 1
+          fi
+          for month in $(jq -r '.[]' months_to_process.json); do 
+            echo "➡️ Kopíruji soubor pro měsíc $month"
+            rclone copy "sm2drive:Influx/nonadditive_${month}.annotated.csv" ./gdrive/ || echo "⚠️ Soubor pro měsíc $month nebyl nalezen."
+            rclone copy "sm2drive:Influx/additive_${month}.annotated.csv" ./gdrive/ || echo "⚠️ Soubor pro měsíc $month nebyl nalezen."
+          done
 
       - name: Check and import previous monthly exports
         run: python3 ./scripts/check_and_import_previous_exports.py
