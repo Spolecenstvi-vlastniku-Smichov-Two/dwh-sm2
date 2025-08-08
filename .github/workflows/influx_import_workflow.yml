@@ -1,0 +1,127 @@
+name: InfluxImportNormalize
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+    
+jobs:
+  import-influx:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      actions: read
+      packages: write
+
+    services:
+      influxdb:
+        image: influxdb:2.7
+        ports:
+          - 8086:8086
+        options: >-
+          --health-cmd="curl --fail http://localhost:8086/health || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        env:
+          DOCKER_INFLUXDB_INIT_MODE: setup
+          DOCKER_INFLUXDB_INIT_USERNAME: ci-user
+          DOCKER_INFLUXDB_INIT_PASSWORD: ci-password
+          DOCKER_INFLUXDB_INIT_ORG: ci-org
+          DOCKER_INFLUXDB_INIT_BUCKET: sensor_data
+          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ci-secret-token
+
+    env:
+      INFLUX_TOKEN: ci-secret-token
+      INFLUX_ORG: ci-org
+      INFLUX_URL: http://localhost:8086
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-python@master
+        with:
+          python-version: '3.12'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install Python dependencies
+        run: pip install pandas
+
+      - name: Install Influx CLI 2.7.5 (ARM64)
+        run: |
+          curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-amd64.deb -o influx-cli.deb
+          sudo dpkg -i influx-cli.deb
+          influx version
+
+      - name: Setup Rclone
+        uses: AnimMouse/setup-rclone@v1
+        with:
+          rclone_config: ${{ secrets.RCLONE_CONFIG }}
+        
+      - name: Add Rclone service account file
+        uses: AnimMouse/setup-rclone/service-account-file@v1
+        with:
+          service_account_filename: service-account-file.json
+          service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }} 
+
+      - name: Download source CSVs from Google Drive
+        run: |
+          rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
+          rclone copy sm2drive:Indoor/Model/ ./gdrive/
+
+      - name: Prepare annotated CSV from source CSVs
+        run: python3 ./scripts/prepare_annotated_csv.py
+
+      - name: 📥 Stáhni pouze soubory pro plovoucí měsíce z Google Drive
+        run: |
+          echo "📅 Načítám seznam měsíců z months_to_process.json"
+          if [ ! -f months_to_process.json ]; then
+            echo "❌ Soubor months_to_process.json neexistuje"; exit 1
+          fi
+          for month in $(jq -r '.[]' months_to_process.json); do 
+            echo "➡️ Kopíruji soubory pro měsíc $month"
+            rclone copy sm2drive:Influx ./gdrive/Influx/ --include "additive_${month}.annotated.csv" || echo "⚠️ Soubor additive pro měsíc $month nebyl nalezen."
+            rclone copy sm2drive:Influx ./gdrive/Influx/ --include "nonadditive_${month}.annotated.csv" || echo "⚠️ Soubor nonadditive pro měsíc $month nebyl nalezen."
+          done
+
+      - name: Check and import previous monthly exports
+        run: python3 ./scripts/check_and_import_previous_exports.py
+
+      - name: Remove imported CSVs
+        run: |
+          echo "🗑️ Odstraňuji zpracované soubory"
+          rm -f ./gdrive/Influx/additive_*.annotated.csv
+          rm -f ./gdrive/Influx/nonadditive_*.annotated.csv
+
+      - name: Import annotated CSV into InfluxDB with debug
+        run: |
+          influx write \
+            --bucket sensor_data \
+            --org "$INFLUX_ORG" \
+            --token "$INFLUX_TOKEN" \
+            --format csv \
+            --file nonadditive_combined.annotated.csv \
+            --host "$INFLUX_URL" \
+            --debug \
+            --skipRowOnError
+
+      - name: Verify bucket contents after write
+        run: |
+          influx bucket list --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --host "$INFLUX_URL"
+          influx query --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --host "$INFLUX_URL" 'from(bucket:"sensor_data") |> range(start: -1y) |> limit(n:5)'
+    
+      - name: Debug raw Influx data
+        run: python3 ./scripts/debug_influx_raw.py
+
+      - name: Export aggregated data to clean CSVs and upload to Google Drive
+        run: python3 ./scripts/export_aggregated_to_csv.py
+
+      - name: Export raw data to annotated CSVs and upload to Google Drive
+        run: python3 ./scripts/export_raw_by_month.py

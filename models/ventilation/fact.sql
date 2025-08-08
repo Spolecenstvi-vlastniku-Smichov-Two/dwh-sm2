@@ -22,6 +22,12 @@ mapped as (
     where unpivoted.date is not null
 ),
 
+params as (
+    select date_add('month', -(b.history - 1), date_trunc('month', now())) as start_ts
+    from {{ ref('mapping_sources') }} as b
+    where b.file_nm = 'fact.csv'
+),
+
 final as (
     select
         time, --strptime(time, '%d.%m.%Y %H:%M:%S') as time, 
@@ -33,4 +39,4 @@ final as (
     select * from {{ source('csv_google','fact_original') }}
 )
 
-select * from final
+select * from final where final.time >= (select max(start_ts) from params)
