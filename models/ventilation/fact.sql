@@ -44,4 +44,4 @@ final as (
 
 select *
 from final
-where time >= (select max(start_ts) from params)
+where time >= (select max(start_ts) from params) --noqa
