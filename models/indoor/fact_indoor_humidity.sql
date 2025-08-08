@@ -16,9 +16,9 @@ mapped as (
 
 params as (
     select
-        date_add(
-            'month', -(b.history - 1), date_trunc('month', now())
-        ) as start_ts
+        date_trunc(
+            'month', now()) - interval (b.history - 1
+            ) month as start_ts
     from {{ ref('mapping_sources') }} as b
     where b.file_nm = 'fact_indoor_humidity.csv'
 ),
