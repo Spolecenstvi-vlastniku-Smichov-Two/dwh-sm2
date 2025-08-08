@@ -1,4 +1,4 @@
-file_nm,source_nm
-fact.csv,Atrea
-fact_indoor_humidity.csv,ThermoPro
-fact_indoor_temperature.csv,ThermoPro
+file_nm,source_nm,history
+fact.csv,Atrea,2
+fact_indoor_humidity.csv,ThermoPro,2
+fact_indoor_temperature.csv,ThermoPro,2
