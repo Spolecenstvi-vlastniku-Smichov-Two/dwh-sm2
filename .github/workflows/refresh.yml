@@ -93,7 +93,7 @@ jobs:
         run: |
           pip install --upgrade sqlfluff
           sqlfluff fix --dialect duckdb -v models/
-
+          sqlfluff lint --dialect duckdb -v models/
     
           # Linting only modified models
           # git fetch origin main:main
