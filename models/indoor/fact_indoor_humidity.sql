@@ -7,7 +7,7 @@ mapped as (
         source.Datetime as "time", --noqa
         mapping.location,
         'humidity_indoor' as data_key,
-        source."Relative_Humidity(%)" as data_value
+        source."Relative_Humidity(%)" as data_value --noqa
     from source
     inner join {{ ref('mapping_indoor') }} as mapping --noqa
         on source.location = mapping.sensor

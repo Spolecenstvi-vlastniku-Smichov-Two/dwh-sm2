@@ -1,9 +1,9 @@
-with source as (
+with source as ( --noqa
     select cast(columns(*) as varchar) from {{ source('csv_google','merged') }}
 ),
 
 unpivoted as (
-    unpivot source
+    unpivot source --noqa
     on columns(* exclude (date))
     into
     name data_key_original
