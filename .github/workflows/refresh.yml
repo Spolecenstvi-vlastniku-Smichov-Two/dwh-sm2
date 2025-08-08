@@ -91,7 +91,7 @@ jobs:
 
       - name: Lint with sqlfluff
         run: |
-          pip install sqlfluff==2.3.5
+          pip install sqlfluff==$(pip index versions sqlfluff | grep -oP '\d+\.\d+\.\d+' | head -n 2 | tail -n 1)
           sqlfluff fix --dialect duckdb -v models/
           sqlfluff lint --dialect duckdb -v models/
     
