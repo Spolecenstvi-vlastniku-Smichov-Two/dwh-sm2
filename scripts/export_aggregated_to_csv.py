@@ -99,9 +99,9 @@ def clean_and_write_monthly(df: pd.DataFrame, measurement: str) -> list[str]:
         return []
 
     # Přejmenování a výběr sloupců
-    rename_map = {"_time": "time", "_value": "value", "_measurement": "measurement"}
+    rename_map = {"_time": "time", "_value": "data_value", "_measurement": "measurement", "quantity": "data_key"}
     df = df.rename(columns=rename_map)
-    needed = ["time", "value", "measurement", "location", "quantity", "source"]
+    needed = ["time", "location", "source", "measurement", "data_key", "data_value"]
     # některé zdroje nemusí mít všechny tagy – ošetřit chybějící:
     for col in needed:
         if col not in df.columns:
