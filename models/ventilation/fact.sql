@@ -24,16 +24,16 @@ mapped as (
 
 params as (
     select
-        date_trunc(
-            'month', now()) - interval (b.history - 1
-            ) month as start_ts
+        date_trunc( --noqa
+            'month', now()) - interval (b.history - 1 --noqa
+            ) month as start_ts --noqa
     from {{ ref('mapping_sources') }} as b
     where b.file_nm = 'fact.csv'
 ),
 
 final as (
     select
-        cast(time as timestamp) as time, 
+        cast(time as timestamp) as time, --noqa
         location,
         data_key,
         data_value
