@@ -15,7 +15,10 @@ mapped as (
 ),
 
 params as (
-    select date_add('month', -(b.history - 1), date_trunc('month', now())) as start_ts
+    select
+        date_add(
+            'month', -(b.history - 1), date_trunc('month', now())
+        ) as start_ts
     from {{ ref('mapping_sources') }} as b
     where b.file_nm = 'fact_indoor_temperature.csv'
 ),
@@ -32,4 +35,6 @@ final as (
     from {{ source('csv_google_indoor','fact_indoor_temperature_original') }}
 )
 
-select * from final where final.time >= (select max(start_ts) from params)
+select *
+from final
+where time >= (select max(start_ts) from params)
