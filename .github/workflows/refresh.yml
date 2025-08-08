@@ -91,8 +91,9 @@ jobs:
 
       - name: Lint with sqlfluff
         run: |
-          pip install --upgrade sqlfluff
-
+          pip install sqlfluff==2.3.5
+          sqlfluff fix --dialect duckdb -v models/
+          sqlfluff lint --dialect duckdb -v models/
     
           # Linting only modified models
           # git fetch origin main:main
