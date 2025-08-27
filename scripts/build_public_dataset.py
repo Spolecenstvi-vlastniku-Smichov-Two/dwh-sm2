@@ -21,7 +21,7 @@ OUT_SCHEMA = OUT_DIR / "schema.json"
 LOCATION_MAP_FILE = Path("./seeds/location_map.csv")
 GDRIVE_TARGET_DIR = "sm2drive:Public"   # cílový adresář na Google Drive
 
-REQUIRED_COLS = ["time", "value", "measurement", "location", "quantity", "source"]
+REQUIRED_COLS = ["time", "data_value", "measurement", "location", "data_key", "source"]
 
 def find_monthly_files() -> list[str]:
     patterns = [
@@ -52,12 +52,12 @@ def load_location_map() -> dict:
     return mapping
 
 def load_and_align(path: str) -> pd.DataFrame:
-    # Očekáváme čistý formát z export_aggregated_to_csv.py: time,value,measurement,location,quantity,source
+    # Očekáváme čistý formát z export_aggregated_to_csv.py: time,data_value,measurement,location,data_key,source
     df = pd.read_csv(path)
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
         # fallback, kdyby někdo pustil starší export
-        rename = {"_time":"time","_value":"value","_measurement":"measurement"}
+        rename = {"_time":"time","_data_value":"data_value","_measurement":"measurement"}
         df = df.rename(columns=rename)
         missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
@@ -65,7 +65,7 @@ def load_and_align(path: str) -> pd.DataFrame:
 
     df = df[REQUIRED_COLS].copy()
     df["time"] = pd.to_datetime(df["time"], errors="coerce", utc=True)
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    df["data_value"] = pd.to_numeric(df["data_value"], errors="coerce")
     return df
 
 def write_readme_and_schema(df: pd.DataFrame):
@@ -74,7 +74,7 @@ def write_readme_and_schema(df: pd.DataFrame):
     time_min = df["time"].min() if n_rows else None
     time_max = df["time"].max() if n_rows else None
     meas_counts = df["measurement"].value_counts().to_dict() if n_rows else {}
-    qty_top = df["quantity"].value_counts().head(15).to_dict() if n_rows else {}
+    qty_top = df["data_key"].value_counts().head(15).to_dict() if n_rows else {}
 
     created_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
@@ -89,13 +89,13 @@ def write_readme_and_schema(df: pd.DataFrame):
 Columns (CSV):
 
 - `time` — ISO 8601 UTC, hourly timestamps  
-- `value` — numeric; for `additive` it is hourly **sum()**; for `nonadditive` hourly **mean()**  
+- `data_value` — numeric; for `additive` it is hourly **sum()**; for `nonadditive` hourly **mean()**  
 - `measurement` — one of `additive`, `nonadditive`  
 - `location` — normalized building position (e.g., `1PP-S1`, `5NP-S9`)  
-- `quantity` — metric name (e.g., `temp_indoor`, `humidity_indoor`, …)  
+- `data_key` — metric name (e.g., `temp_indoor`, `humidity_indoor`, …)  
 - `source` — original source of measurement (e.g., `Atrea`, `ThermoPro`)
 
-Units and semantics depend on `quantity` (documented separately if needed).
+Units and semantics depend on `data_key` (documented separately if needed).
 
 ## Counts
 
@@ -124,13 +124,13 @@ Specify your preferred license here (e.g., CC BY 4.0).
         "encoding": "utf-8",
         "columns": [
             {"name": "time", "type": "datetime", "timezone": "UTC", "description": "ISO 8601 hourly timestamp"},
-            {"name": "value", "type": "number", "description": "hourly aggregated value (sum for additive, mean for nonadditive)"},
+            {"name": "data_value", "type": "number", "description": "hourly aggregated value (sum for additive, mean for nonadditive)"},
             {"name": "measurement", "type": "string", "enum": ["additive","nonadditive"]},
             {"name": "location", "type": "string", "description": "normalized building location (e.g., 1PP-S1, 5NP-S9)"},
-            {"name": "quantity", "type": "string", "description": "metric key (e.g., temp_indoor, humidity_indoor)"},
+            {"name": "data_key", "type": "string", "description": "metric key (e.g., temp_indoor, humidity_indoor)"},
             {"name": "source", "type": "string", "description": "measurement source (e.g., Atrea, ThermoPro)"}
         ],
-        "primary_key": ["time","measurement","location","quantity","source"],
+        "primary_key": ["time","measurement","location","data_key","source"],
         "notes": "Influx aggregateWindow(every: 1h). Values are deterministic per key.",
         "counts": {
             "rows": n_rows,
@@ -169,7 +169,7 @@ def main():
 
     data = pd.concat(parts, ignore_index=True)
     # stabilní řazení pro čitelný CSV
-    data = data.sort_values(["time","location","quantity","source"]).reset_index(drop=True)
+    data = data.sort_values(["time","location","data_key","source"]).reset_index(drop=True)
 
     # Uložení CSV
     data.to_csv(OUT_CSV, index=False)
