@@ -1,0 +1,62 @@
+name: Publish Public Dataset
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # každý týden v pondělí v 03:10 CET (Prague je CET/CEST; GitHub cron je v UTC, přizpůsob si)
+    - cron: "10 2 * * 6"
+
+jobs:
+  publish-public-dataset:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      actions: read
+      packages: write
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@master
+
+      - name: Setup Rclone
+        uses: AnimMouse/setup-rclone@v1
+        with:
+          rclone_config: ${{ secrets.RCLONE_CONFIG }}
+        
+      - name: Add Rclone service account file
+        uses: AnimMouse/setup-rclone/service-account-file@v1
+        with:
+          service_account_filename: service-account-file.json
+          service_account_file: ${{ secrets.SERVICE_ACCOUNT_FILE }} 
+
+      - name: Set up Python
+        uses: actions/setup-python@master
+        with:
+          python-version: '3.12'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install Python deps
+        run: |
+          pip install pandas pyarrow
+
+      - name: Download aggregated monthly CSVs from Google Drive
+        run: |
+          mkdir -p gdrive
+          # stáhni pouze soubory *_YYYY-MM.hourly.csv z Normalized/
+          rclone copy --include "*_????-??.hourly.csv" "sm2drive:Normalized" ./gdrive/ || true
+
+          echo "Nalezené soubory:"
+          ls -1 ./gdrive || true
+
+      - name: Ensure seeds present (location map)
+        run: |
+          test -f ./seeds/location_map.csv && head -n 5 ./seeds/location_map.csv || echo "⚠️ seeds/location_map.csv chybí"
+
+      - name: Build public dataset (CSV + Parquet + README + schema) and upload
+        run: |
+          python3 scripts/build_public_dataset.py
