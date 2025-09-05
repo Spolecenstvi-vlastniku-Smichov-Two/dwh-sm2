@@ -85,15 +85,11 @@ force_by_gt12 () {
   ' "$f"
 }
 
-# ---- Funkce: validátor (použijeme ve více awk blocích) ----
-awk_valid_fn='
-  function valid(d,m){ if(m<1||m>12||d<1||d>31) return 0; if((m==4||m==6||m==9||m==11)&&d>30) return 0; if(m==2&&d>29) return 0; return 1 }
-'
-
 # ---- Funkce: rozhodnutí dle "max datum == TODAY" (bere jen validní kombinace) ----
 by_today_match () {
   local f="$1" today="$2"
-  awk -F, -v TODAY="$today" "$awk_valid_fn
+  awk -F, -v TODAY="$today" '
+    function valid(d,m){ if(m<1||m>12||d<1||d>31) return 0; if((m==4||m==6||m==9||m==11)&&d>30) return 0; if(m==2&&d>29) return 0; return 1 }
     function ymd_num(y,m,d){ return y*10000 + m*100 + d }
     BEGIN{ max_mdy=0; max_dmy=0 }
     NR>2{
@@ -121,7 +117,7 @@ by_today_match () {
       else if (max_dmy==today_num && max_mdy!=today_num) print "DMY"
       else print "UNKNOWN"
     }
-  " "$f"
+  ' "$f"
 }
 
 # ---- Funkce: „pomalost změny“ – méně unikátů určí měsíc ----
@@ -151,15 +147,16 @@ by_slow_change () {
 # ---- Funkce: diagnostika (pro log) – validní maxima; hezký tisk ----
 print_detect_diag () {
   local f="$1" today="$2"
-  awk -F, -v TODAY="$today" "$awk_valid_fn
-    function ymd(y,m,d){ return sprintf(\"%04d-%02d-%02d\", y,m,d) }
+  awk -F, -v TODAY="$today" '
+    function valid(d,m){ if(m<1||m>12||d<1||d>31) return 0; if((m==4||m==6||m==9||m==11)&&d>30) return 0; if(m==2&&d>29) return 0; return 1 }
+    function ymd(y,m,d){ return sprintf("%04d-%02d-%02d", y,m,d) }
     function ymd_num(y,m,d){ return y*10000 + m*100 + d }
     BEGIN{
       d1gt=0; d2gt=0; max_mdy=0; max_dmy=0;
       have_mdy=0; have_dmy=0;
     }
     NR>2{
-      d=$1; gsub(/^\xEF\xBB\xBF/,\"\",d)
+      d=$1; gsub(/^\xEF\xBB\xBF/,"",d)
       if (d ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/) {
         y=substr(d,7,4)+0
         p1=substr(d,1,2)+0
@@ -185,14 +182,14 @@ print_detect_diag () {
     END{
       c1=0; for (k in u1) c1++
       c2=0; for (k in u2) c2++
-      printf \"   Diagnostika:\\n\"
-      printf \"     • Pojistka >12:  pos1>12=%d  pos2>12=%d\\n\", d1gt, d2gt
-      if (have_mdy) printf \"     • Max (MDY): %s\\n\", ymd(y_m,m_m,d_m); else printf \"     • Max (MDY): n/a (nenalezen validní)\\n\"
-      if (have_dmy) printf \"     • Max (DMY): %s\\n\", ymd(y_d,m_d,d_d); else printf \"     • Max (DMY): n/a (nenalezen validní)\\n\"
-      printf \"     • Dnešek: %s\\n\", TODAY
-      printf \"     • Unikáty: pos1=%d  pos2=%d\\n\", c1, c2
+      printf "   Diagnostika:\n"
+      printf "     • Pojistka >12:  pos1>12=%d  pos2>12=%d\n", d1gt, d2gt
+      if (have_mdy) printf "     • Max (MDY): %s\n", ymd(y_m,m_m,d_m); else printf "     • Max (MDY): n/a (nenalezen validní)\n"
+      if (have_dmy) printf "     • Max (DMY): %s\n", ymd(y_d,m_d,d_d); else printf "     • Max (DMY): n/a (nenalezen validní)\n"
+      printf "     • Dnešek: %s\n", TODAY
+      printf "     • Unikáty: pos1=%d  pos2=%d\n", c1, c2
     }
-  " "$f"
+  ' "$f"
 }
 
 # ---- Funkce: finální rozhodnutí o formátu pro soubor ----
