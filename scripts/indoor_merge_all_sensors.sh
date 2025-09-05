@@ -4,7 +4,8 @@
 #  1) interpretace, která dává TODAY, je správná
 #  2) záloha: pojistka >12 na posledním řádku
 #  3) jinak FAIL
-# Loguje head/tail vstupu, diagnostiku posledního řádku, ukázky null-token řádků a head/tail výstupu.
+# Nově: řádky s OBOU null tokeny (temp i rh) se PŘESKAKUJÍ a na konci souboru se vypíše:
+#   "Location <LOC> nemeri, zkontrolujte baterie"
 
 set -euo pipefail
 
@@ -17,8 +18,9 @@ TZ="${TZ:-Europe/Prague}"
 TODAY="${TODAY:-$(TZ="$TZ" date +%Y-%m-%d)}"      # dnešní datum (YYYY-MM-DD)
 
 # Null tokeny v měřeních
-ALLOW_NULL_TOKENS="${ALLOW_NULL_TOKENS:-0}"       # 0 = fail-fast na '-', 'NA', 'N/A', 'NULL'
-NULL_TOKEN_SAMPLE_N="${NULL_TOKEN_SAMPLE_N:-25}"  # kolik ukázek „null“ řádků vypsat
+#  - řádky s OBOU null tokeny se přeskočí vždy (nové chování)
+#  - řádky s JEDNÍM null tokenem se ponechají (NULL v CSV)
+NULL_TOKEN_SAMPLE_N="${NULL_TOKEN_SAMPLE_N:-25}"  # kolik ukázek „null“ řádků vypsat (do logu)
 NULL_TOKEN_DUMP="${NULL_TOKEN_DUMP:-0}"           # 1 = vypiš úplně všechny „null“ řádky
 
 mkdir -p "$(dirname "$OUTPUT")"
@@ -66,18 +68,15 @@ detect_fmt_from_last () {
       mdyn = mdv? ymd_num(y,p1,p2) : -1
       dmyn = dmv? ymd_num(y,p2,p1) : -1
 
-      # tisk do stderr
       printf("   Poslední řádek (raw): %s %s\n", lastd, lastt) > "/dev/stderr"
       if (mdv) printf("     • MDY → %04d-%02d-%02d %s (==TODAY? %s)\n", y,p1,p2,lastt, (mdyn==today?"ANO":"ne")) > "/dev/stderr"
       else     printf("     • MDY → neplatné datum\n") > "/dev/stderr"
       if (dmv) printf("     • DMY → %04d-%02d-%02d %s (==TODAY? %s)\n", y,p2,p1,lastt, (dmyn==today?"ANO":"ne")) > "/dev/stderr"
       else     printf("     • DMY → neplatné datum\n") > "/dev/stderr"
 
-      # 1) shoda s TODAY
       if (mdyn==today && dmyn!=today) { print "MDY"; exit }
       if (dmyn==today && mdyn!=today) { print "DMY"; exit }
 
-      # 2) pojistka >12 na posledním řádku
       if (p1>12 && p2<=12) { print "DMY"; exit }
       if (p2>12 && p1<=12) { print "MDY"; exit }
 
@@ -113,12 +112,12 @@ for file in "${files[@]}"; do
   out_tmp="$tmpdir/out_$idx.csv"
   awk -v OFS="," \
       -v loc="$location" -v fmt="$fmt" -v SRC="$file" \
-      -v SAMPLE="$NULL_TOKEN_SAMPLE_N" -v DUMP="$NULL_TOKEN_DUMP" -v ALLOW="$ALLOW_NULL_TOKENS" '
+      -v SAMPLE="$NULL_TOKEN_SAMPLE_N" -v DUMP="$NULL_TOKEN_DUMP" '
     function trim(s){ sub(/^ +/,"",s); sub(/ +$/,"",s); return s }
     function is_num(s){ return (s ~ /^-?[0-9]+([.][0-9]+)?$/) }
     function is_null_tok(s,  u){ s=trim(s); u=toupper(s); return (s=="" || s=="-" || u=="NA" || u=="N/A" || u=="NULL") }
 
-    BEGIN { FS=","; null_hits=0; shown=0 }
+    BEGIN { FS=","; null_any=0; both_null=0; shown=0 }
     NR <= 2 { next }
     { gsub(/^\xEF\xBB\xBF/, "", $1) }
 
@@ -136,21 +135,30 @@ for file in "${files[@]}"; do
       raw_temp=$3; raw_rh=$4
       temp=trim(raw_temp); rh=trim(raw_rh)
 
-      had_null=0
-      if (is_null_tok(temp)) { temp=""; had_null=1 }
-      if (is_null_tok(rh))   { rh  =""; had_null=1 }
+      nt=is_null_tok(temp); nr=is_null_tok(rh)
+      had_any = (nt || nr)
+      had_both = (nt && nr)
+
+      if (nt) temp=""
+      if (nr) rh=""
 
       datetime = sprintf("%04d-%02d-%02d %s:%s:%s", year, month, day, hour, minute, second)
 
-      if (had_null) {
-        null_hits++
-        if (DUMP==1 || shown < SAMPLE) {
+      if (had_any) {
+        null_any++
+        if (DUMP==1 || shown < '"$NULL_TOKEN_SAMPLE_N"') {
           shown++
           printf("  == NULL TOKEN (file=%s line=%d)\n    input:  \"%s,%s,%s,%s\"\n", SRC, NR, $1,$2,raw_temp,raw_rh) > "/dev/stderr"
-          printf("    output: \"%s,%s,%s,%s\"\n", datetime, (temp==""?"":temp), (rh==""?"":rh), loc) > "/dev/stderr"
+          printf("    output: \"%s,%s,%s,%s\"%s\n",
+                 datetime, (temp==""?"":temp), (rh==""?"":rh), loc,
+                 (had_both?"  [SKIP]":"")) > "/dev/stderr"
         }
       }
 
+      # Pokud obě hodnoty chybí -> PŘESKOČIT
+      if (had_both) { both_null++; next }
+
+      # přísnost na jiné nečíselné řetězce (ponecháme základní kontrolu)
       if (temp!="" && !is_num(temp)) { printf("  !! non_numeric temp | file=%s | raw=\"%s,%s,%s,%s\"\n", SRC,$1,$2,raw_temp,raw_rh) > "/dev/stderr"; exit 6 }
       if (rh  !="" && !is_num(rh))   { printf("  !! non_numeric  rh | file=%s | raw=\"%s,%s,%s,%s\"\n", SRC,$1,$2,raw_temp,raw_rh) > "/dev/stderr"; exit 6 }
 
@@ -158,13 +166,9 @@ for file in "${files[@]}"; do
     }
 
     END {
-      if (null_hits > 0) {
-        printf("   — Souhrn null tokenů v souboru: %d řádků.%s\n",
-               null_hits, (ALLOW?" Pokračuji (ALLOW_NULL_TOKENS=1).":"")) > "/dev/stderr"
-        if (!ALLOW) {
-          printf("❌ Nalezeny null tokeny (\"-\", \"NA\", \"N/A\", \"NULL\"). Selhávám (ALLOW_NULL_TOKENS=0).\n") > "/dev/stderr"
-          exit 5
-        }
+      if (both_null > 0) {
+        # Žádaná hláška do terminálu (jednou za soubor/location)
+        printf("Location %s nemeri, zkontrolujte baterie\n", loc) > "/dev/stderr"
       }
     }
   ' "$file"
