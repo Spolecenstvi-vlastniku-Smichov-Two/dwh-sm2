@@ -7,6 +7,11 @@
 # Pokud je i tak výsledek neurčitý -> FAIL (raději skončit než zničit data).
 #
 # Loguje vzorky vstupu (head/tail) i výstupu a shrnutí detekce.
+# Null tokeny ('-', 'NA', 'N/A', 'NULL') se mapují na prázdno; defaultně fail-fast.
+# Přepínače:
+#   ALLOW_NULL_TOKENS=1      … pouze zaloguje, neukončí s chybou
+#   NULL_TOKEN_SAMPLE_N=25   … počet ukázek do logu
+#   NULL_TOKEN_DUMP=1        … vypíše všechny řádky s null tokeny (pozor na objem logu)
 
 set -euo pipefail
 
@@ -14,9 +19,14 @@ INPUT_GLOB="./latest/ThermoProSensor_export_*.csv"
 OUTPUT="./gdrive/all_sensors_merged.csv"
 
 # --- Konfigurovatelné přes env ---
-SAMPLE_N="${SAMPLE_N:-5}"                 # kolik ukázek (head/tail) ukázat na vstupu i výstupu
-TZ="${TZ:-Europe/Prague}"                 # časová zóna
-TODAY="${TODAY:-$(TZ="$TZ" date +%Y-%m-%d)}"   # dnešní datum (lze přepsat env TODAY=YYYY-MM-DD)
+SAMPLE_N="${SAMPLE_N:-5}"                         # kolik ukázek vstupu/výstupu ukázat
+TZ="${TZ:-Europe/Prague}"                         # časová zóna
+TODAY="${TODAY:-$(TZ="$TZ" date +%Y-%m-%d)}"      # dnešní datum (lze přepsat env TODAY=YYYY-MM-DD)
+
+# Null-token logging & policy
+ALLOW_NULL_TOKENS="${ALLOW_NULL_TOKENS:-0}"       # 0 = fail-fast, 1 = jen loguj
+NULL_TOKEN_SAMPLE_N="${NULL_TOKEN_SAMPLE_N:-25}"  # ukázky na soubor
+NULL_TOKEN_DUMP="${NULL_TOKEN_DUMP:-0}"           # 1 = vypiš všechny výskyty
 
 mkdir -p "$(dirname "$OUTPUT")"
 
@@ -32,10 +42,26 @@ fi
 print_input_samples () {
   local f="$1"
   echo "   Vstup – první ${SAMPLE_N} datových řádků:"
-  awk -v n="$SAMPLE_N" 'NR>2{print; if(++c==n) exit}' "$f" || true
+  awk -v n="$SAMPLE_N" '
+    NR>2 {
+      gsub(/^\xEF\xBB\xBF/, "", $0)  # očista BOM pro hezký výpis
+      print
+      if (++c == n) exit
+    }
+  ' "$f" || true
+
   echo "   Vstup – posledních ${SAMPLE_N} datových řádků:"
-  # pokud je soubor krátký, tail může vrátit i hlavičky, proto filtr NR>2:
-  tac "$f" | awk 'NR>2 && $0!=""{buf[bufc++]=$0} END{for(i=bufc-1, c=0; i>=0 && c<ENVIRON["SAMPLE_N"]; i--, c++) print buf[i]}' || true
+  awk -v n="$SAMPLE_N" '
+    NR>2 {
+      gsub(/^\xEF\xBB\xBF/, "", $0)
+      buf[++c] = $0
+    }
+    END {
+      if (c == 0) exit
+      start = (c > n ? c - n + 1 : 1)
+      for (i = start; i <= c; i++) print buf[i]
+    }
+  ' "$f" || true
 }
 
 # ---- Funkce: počáteční rychlá „pojistka >12“ (DN/MD) ----
@@ -52,20 +78,22 @@ force_by_gt12 () {
       }
     }
     END{
-      if (d1gt>0 && d2gt==0) print "DMY";      # první pozice >12 => musí být den => DMY
-      else if (d2gt>0 && d1gt==0) print "MDY"; # druhá pozice >12 => musí být den => MDY
+      if (d1gt>0 && d2gt==0) print "DMY";      # první pozice >12 => den => DMY
+      else if (d2gt>0 && d1gt==0) print "MDY"; # druhá pozice >12 => den => MDY
       else print "UNKNOWN"
-      # pro diagnostiku:
-      # printf("DBG_GT12 p1>%s p2>%s\n", d1gt, d2gt) > "/dev/stderr"
     }
   ' "$f"
 }
 
-# ---- Funkce: rozhodnutí dle "max datum == TODAY" ----
+# ---- Funkce: validátor (použijeme ve více awk blocích) ----
+awk_valid_fn='
+  function valid(d,m){ if(m<1||m>12||d<1||d>31) return 0; if((m==4||m==6||m==9||m==11)&&d>30) return 0; if(m==2&&d>29) return 0; return 1 }
+'
+
+# ---- Funkce: rozhodnutí dle "max datum == TODAY" (bere jen validní kombinace) ----
 by_today_match () {
   local f="$1" today="$2"
-  awk -F, -v TODAY="$today" '
-    function max(a,b){return (a>b)?a:b}
+  awk -F, -v TODAY="$today" "$awk_valid_fn
     function ymd_num(y,m,d){ return y*10000 + m*100 + d }
     BEGIN{ max_mdy=0; max_dmy=0 }
     NR>2{
@@ -75,11 +103,15 @@ by_today_match () {
         p1=substr(d,1,2)+0
         p2=substr(d,4,2)+0
         # MDY: month=p1, day=p2
-        v_mdy = ymd_num(y, p1, p2)
+        if (valid(p2,p1)) {
+          v_mdy = ymd_num(y, p1, p2)
+          if (v_mdy > max_mdy) max_mdy = v_mdy
+        }
         # DMY: month=p2, day=p1
-        v_dmy = ymd_num(y, p2, p1)
-        if (v_mdy > max_mdy) max_mdy = v_mdy
-        if (v_dmy > max_dmy) max_dmy = v_dmy
+        if (valid(p1,p2)) {
+          v_dmy = ymd_num(y, p2, p1)
+          if (v_dmy > max_dmy) max_dmy = v_dmy
+        }
       }
     }
     END{
@@ -89,7 +121,7 @@ by_today_match () {
       else if (max_dmy==today_num && max_mdy!=today_num) print "DMY"
       else print "UNKNOWN"
     }
-  ' "$f"
+  " "$f"
 }
 
 # ---- Funkce: „pomalost změny“ – méně unikátů určí měsíc ----
@@ -116,41 +148,51 @@ by_slow_change () {
   ' "$f"
 }
 
-# ---- Funkce: diagnostika (pro log) – ukáže i max MDY/DMY ----
+# ---- Funkce: diagnostika (pro log) – validní maxima; hezký tisk ----
 print_detect_diag () {
   local f="$1" today="$2"
-  awk -F, -v TODAY="$today" '
-    function ymd(y,m,d){ return sprintf("%04d-%02d-%02d", y,m,d) }
+  awk -F, -v TODAY="$today" "$awk_valid_fn
+    function ymd(y,m,d){ return sprintf(\"%04d-%02d-%02d\", y,m,d) }
     function ymd_num(y,m,d){ return y*10000 + m*100 + d }
     BEGIN{
-      d1gt=0; d2gt=0; max_mdy=0; max_dmy=0
+      d1gt=0; d2gt=0; max_mdy=0; max_dmy=0;
+      have_mdy=0; have_dmy=0;
     }
     NR>2{
-      d=$1; gsub(/^\xEF\xBB\xBF/,"",d)
+      d=$1; gsub(/^\xEF\xBB\xBF/,\"\",d)
       if (d ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/) {
         y=substr(d,7,4)+0
         p1=substr(d,1,2)+0
         p2=substr(d,4,2)+0
+
         if (p1>12) d1gt++
         if (p2>12) d2gt++
-        vm=ymd_num(y,p1,p2)
-        vd=ymd_num(y,p2,p1)
-        if (vm>max_mdy) { max_mdy=vm; y_m=y; m_m=p1; d_m=p2 }
-        if (vd>max_dmy) { max_dmy=vd; y_d=y; m_d=p2; d_d=p1 }
+
+        # MDY valid
+        if (valid(p2,p1)) {
+          vm=ymd_num(y,p1,p2)
+          if (vm>max_mdy) { max_mdy=vm; y_m=y; m_m=p1; d_m=p2; have_mdy=1 }
+        }
+        # DMY valid
+        if (valid(p1,p2)) {
+          vd=ymd_num(y,p2,p1)
+          if (vd>max_dmy) { max_dmy=vd; y_d=y; m_d=p2; d_d=p1; have_dmy=1 }
+        }
+
         u1[p1]=1; u2[p2]=1
       }
     }
     END{
       c1=0; for (k in u1) c1++
       c2=0; for (k in u2) c2++
-      printf "   Diagnostika:\n"
-      printf "     • Pojistka >12:  pos1>12=%d  pos2>12=%d\n", d1gt, d2gt
-      if (max_mdy>0) printf "     • Max (MDY): %s\n", ymd(y_m,m_m,d_m)
-      if (max_dmy>0) printf "     • Max (DMY): %s\n", ymd(y_d,m_d,d_d)
-      printf "     • Dnešek: %s\n", TODAY
-      printf "     • Unikáty: pos1=%d  pos2=%d\n", c1, c2
+      printf \"   Diagnostika:\\n\"
+      printf \"     • Pojistka >12:  pos1>12=%d  pos2>12=%d\\n\", d1gt, d2gt
+      if (have_mdy) printf \"     • Max (MDY): %s\\n\", ymd(y_m,m_m,d_m); else printf \"     • Max (MDY): n/a (nenalezen validní)\\n\"
+      if (have_dmy) printf \"     • Max (DMY): %s\\n\", ymd(y_d,m_d,d_d); else printf \"     • Max (DMY): n/a (nenalezen validní)\\n\"
+      printf \"     • Dnešek: %s\\n\", TODAY
+      printf \"     • Unikáty: pos1=%d  pos2=%d\\n\", c1, c2
     }
-  ' "$f"
+  " "$f"
 }
 
 # ---- Funkce: finální rozhodnutí o formátu pro soubor ----
@@ -165,7 +207,7 @@ guess_date_format () {
     return
   fi
 
-  # 1) max == TODAY
+  # 1) max == TODAY (jen validní kombinace)
   local bytoday
   bytoday="$(by_today_match "$f" "$TODAY")"
   if [ "$bytoday" != "UNKNOWN" ]; then
@@ -194,7 +236,7 @@ for file in "${files[@]}"; do
   idx=$((idx+1))
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "📄 [$idx/${#files[@]}] Zpracovávám: $file"
+  echo "📄 [${idx}/${#files[@]}] Zpracovávám: $file"
   location="$(basename "$file" | awk -F'_' '{print $3}')"
   echo "   Location: $location"
 
@@ -218,13 +260,18 @@ for file in "${files[@]}"; do
     first=0
   fi
 
-  # převod (podporujeme i HH:MM:SS)
-  awk -v OFS="," -v loc="$location" -v fmt="$fmt" '
-    BEGIN { FS="," }
-    NR <= 2 { next }  # přeskočit popis + hlavičku
-    {
-      gsub(/^\xEF\xBB\xBF/, "", $1)
-    }
+  # převod (HH:MM[:SS]) + mapování null tokenů + explicitní výpis INPUT/OUTPUT řádků s nullem + fail-fast
+  awk -v OFS="," \
+      -v loc="$location" -v fmt="$fmt" -v SRC="$file" \
+      -v SAMPLE="$NULL_TOKEN_SAMPLE_N" -v DUMP="$NULL_TOKEN_DUMP" -v ALLOW="$ALLOW_NULL_TOKENS" '
+    function trim(s){ sub(/^ +/,"",s); sub(/ +$/,"",s); return s }
+    function is_num(s){ return (s ~ /^-?[0-9]+([.][0-9]+)?$/) }
+    function is_null_tok(s,  u){ s=trim(s); u=toupper(s); return (s=="" || s=="-" || u=="NA" || u=="N/A" || u=="NULL") }
+
+    BEGIN { FS=","; null_hits=0; shown=0 }
+    NR <= 2 { next }
+    { gsub(/^\xEF\xBB\xBF/, "", $1) }
+
     NF && $1 ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/ && $2 ~ /^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?$/ {
       split($1, d, "/")
       day   = (fmt == "DMY" ? d[1]+0 : d[2]+0)
@@ -236,8 +283,44 @@ for file in "${files[@]}"; do
       minute = sprintf("%02d", t[2])
       second = (t[3] ? sprintf("%02d", t[3]) : "00")
 
+      raw_temp = $3
+      raw_rh   = $4
+      temp = trim(raw_temp)
+      rh   = trim(raw_rh)
+
+      had_null = 0
+      if (is_null_tok(temp)) { temp=""; had_null=1 }
+      if (is_null_tok(rh))   { rh  =""; had_null=1 }
+
       datetime = sprintf("%04d-%02d-%02d %s:%s:%s", year, month, day, hour, minute, second)
-      print datetime, $3, $4, loc
+
+      if (had_null) {
+        null_hits++
+        if (DUMP==1 || shown < SAMPLE) {
+          shown++
+          # INPUT exact
+          fprintf(stderr, "  == NULL TOKEN (file=%s line=%d)\n    input:  \"%s,%s,%s,%s\"\n", SRC, NR, $1,$2,raw_temp,raw_rh)
+          # OUTPUT projection (po mapování na prázdno)
+          fprintf(stderr, "    output: \"%s,%s,%s,%s\"\n", datetime, (temp==""?"":temp), (rh==""?"":rh), loc)
+        }
+      }
+
+      # přísnost na jiné nečíselné řetězce
+      if (temp!="" && !is_num(temp)) { fprintf(stderr, "  !! non_numeric temp | file=%s | raw=\"%s,%s,%s,%s\"\n", SRC, $1,$2,raw_temp,raw_rh); exit 6 }
+      if (rh  !="" && !is_num(rh))   { fprintf(stderr, "  !! non_numeric  rh | file=%s | raw=\"%s,%s,%s,%s\"\n", SRC, $1,$2,raw_temp,raw_rh); exit 6 }
+
+      print datetime, temp, rh, loc
+    }
+
+    END {
+      if (null_hits > 0) {
+        fprintf(stderr, "   — Souhrn null tokenů v souboru: %d řádků (viz výše).%s\n",
+                        null_hits, (ALLOW?" Pokračuji (ALLOW_NULL_TOKENS=1).":""))
+        if (!ALLOW) {
+          fprintf(stderr, "❌ Nalezeny null tokeny (\"-\", \"NA\", \"N/A\", \"NULL\"). Selhávám (ALLOW_NULL_TOKENS=0).\n")
+          exit 5
+        }
+      }
     }
   ' "$file" >> "$OUTPUT"
 
