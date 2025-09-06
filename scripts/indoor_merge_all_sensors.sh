@@ -29,6 +29,8 @@ shopt -s nullglob
 files=( $INPUT_GLOB )
 if [ ${#files[@]} -eq 0 ]; then
   echo "ℹ️ Žádné nové vstupy: $INPUT_GLOB"
+  echo "Datetime,Temperature_Celsius,Relative_Humidity(%),Location" > "$OUTPUT"
+  echo "Vytvořen prázdný výstup s hlavičkou"
   exit 0
 fi
 
