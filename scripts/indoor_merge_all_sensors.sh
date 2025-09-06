@@ -28,8 +28,8 @@ mkdir -p "$(dirname "$OUTPUT")"
 shopt -s nullglob
 files=( $INPUT_GLOB )
 if [ ${#files[@]} -eq 0 ]; then
-  echo "❗ Nenalezeny vstupní soubory: $INPUT_GLOB"
-  exit 2
+  echo "ℹ️ Žádné nové vstupy: $INPUT_GLOB"
+  exit 0
 fi
 
 # Head/Tail vstupu bez 'tac'
