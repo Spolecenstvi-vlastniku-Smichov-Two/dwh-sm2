@@ -54,38 +54,70 @@ detect_fmt_from_last () {
   awk -F, -v TODAY="$TODAY" '
     function valid(d,m){ if(m<1||m>12||d<1||d>31) return 0; if((m==4||m==6||m==9||m==11)&&d>30) return 0; if(m==2&&d>29) return 0; return 1 }
     function ymd_num(y,m,d){ return y*10000+m*100+d }
+    function epoch(y,m,d){ return mktime(sprintf("%04d %02d %02d 00 00 00", y,m,d)) }
+
     NR>2 {
       d=$1; t=$2; gsub(/^\xEF\xBB\xBF/,"",d)
-      if (d ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/) { lastd=d; lastt=t }
+      if (d ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/) {
+        lastd=d; lastt=t
+        p1=substr(d,1,2)+0; p2=substr(d,4,2)+0
+        # sbíráme JEDNOZNAČNÝ důkaz pro fallback
+        if (p1>12 && p2<=12) fmt_hint="DMY"
+        else if (p2>12 && p1<=12) fmt_hint="MDY"
+      }
     }
     END {
       if (lastd=="") { print "UNKNOWN"; exit }
+
       y=substr(lastd,7,4)+0
-      p1=substr(lastd,1,2)+0  # první dvojice
-      p2=substr(lastd,4,2)+0  # druhá dvojice
-      # diagnostika
+      p1=substr(lastd,1,2)+0
+      p2=substr(lastd,4,2)+0
+
       yT=substr(TODAY,1,4)+0; mT=substr(TODAY,6,2)+0; dT=substr(TODAY,9,2)+0
-      today=ymd_num(yT,mT,dT)
+      today_epoch = epoch(yT,mT,dT)
+      week_start  = today_epoch - 6*86400
+      day_end     = today_epoch + 86400 - 1
+
       mdv=valid(p2,p1); dmv=valid(p1,p2)
-      mdyn = mdv? ymd_num(y,p1,p2) : -1
-      dmyn = dmv? ymd_num(y,p2,p1) : -1
+      md_y=y; md_m=p1; md_d=p2
+      dm_y=y; dm_m=p2; dm_d=p1
+
+      mdyn = mdv? ymd_num(md_y,md_m,md_d) : -1
+      dmyn = dmv? ymd_num(dm_y,dm_m,dm_d) : -1
+
+      md_ep = mdv? epoch(md_y,md_m,md_d) : -1
+      dm_ep = dmv? epoch(dm_y,dm_m,dm_d) : -1
 
       printf("   Poslední řádek (raw): %s %s\n", lastd, lastt) > "/dev/stderr"
-      if (mdv) printf("     • MDY → %04d-%02d-%02d %s (==TODAY? %s)\n", y,p1,p2,lastt, (mdyn==today?"ANO":"ne")) > "/dev/stderr"
+      if (mdv) printf("     • MDY → %04d-%02d-%02d %s (==TODAY? %s; in_last_week? %s)\n",
+                      md_y,md_m,md_d,lastt, (mdyn==ymd_num(yT,mT,dT)?"ANO":"ne"),
+                      (md_ep>=week_start && md_ep<=day_end ? "ANO":"ne")) > "/dev/stderr"
       else     printf("     • MDY → neplatné datum\n") > "/dev/stderr"
-      if (dmv) printf("     • DMY → %04d-%02d-%02d %s (==TODAY? %s)\n", y,p2,p1,lastt, (dmyn==today?"ANO":"ne")) > "/dev/stderr"
+      if (dmv) printf("     • DMY → %04d-%02d-%02d %s (==TODAY? %s; in_last_week? %s)\n",
+                      dm_y,dm_m,dm_d,lastt, (dmyn==ymd_num(yT,mT,dT)?"ANO":"ne"),
+                      (dm_ep>=week_start && dm_ep<=day_end ? "ANO":"ne")) > "/dev/stderr"
       else     printf("     • DMY → neplatné datum\n") > "/dev/stderr"
 
-      if (mdyn==today && dmyn!=today) { print "MDY"; exit }
-      if (dmyn==today && mdyn!=today) { print "DMY"; exit }
+      # 1) preferuj TODAY rozhodnutí
+      if (mdyn==ymd_num(yT,mT,dT) && dmyn!=ymd_num(yT,mT,dT)) { print "MDY"; exit }
+      if (dmyn==ymd_num(yT,mT,dT) && mdyn!=ymd_num(yT,mT,dT)) { print "DMY"; exit }
 
-      if (p1>12 && p2<=12) { print "DMY"; exit }
-      if (p2>12 && p1<=12) { print "MDY"; exit }
+      # 2) pokud přesně jedna interpretace je v posledním týdnu (včetně dneška)
+      inw_mdy = (md_ep>=week_start && md_ep<=day_end)
+      inw_dmy = (dm_ep>=week_start && dm_ep<=day_end)
+      if (inw_mdy && !inw_dmy) { print "MDY"; exit }
+      if (inw_dmy && !inw_mdy) { print "DMY"; exit }
 
-      print "UNKNOWN"
+      # 3) fallback: jednoznačný důkaz z jiného řádku
+      if (fmt_hint!="") { print fmt_hint; exit }
+
+      # 4) ultimate fallback: lokální default (EU → DMY)
+      printf("     • Fallback: žádný rozhodující signál, volím DMY (lokální default)\n") > "/dev/stderr"
+      print "DMY"
     }
   ' "$f"
 }
+
 
 # ==== hlavní běh ====
 tmpdir="$(mktemp -d)"
