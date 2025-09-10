@@ -1,27 +1,45 @@
 #!/usr/bin/env bash
-# indoor_merge_all_sensors.sh — zjednodušená, mawk-kompatibilní verze
-# Rozhodnutí formátu jen z POSLEDNÍHO datového řádku:
-#  1) interpretace, která dává TODAY, je správná
-#  2) záloha: pojistka >12 na posledním řádku
-#  3) jinak FAIL
-# Nově: řádky s OBOU null tokeny (temp i rh) se PŘESKAKUJÍ a na konci souboru se vypíše:
-#   "Location <LOC> nemeri, zkontrolujte baterie"
-
+# indoor_merge_all_sensors.sh — robustní sloučení CSV z ThermoPro + autodetekce formátu datumu
+# -----------------------------------------------------------------------------
+# Funkce:
+#  - Detekce MDY/DMY z POSLEDNÍHO řádku s datem + „poslední týden“ (včetně dneška)
+#  - Doplňkově: počítá jednoznačné důkazy z CELÉHO souboru (p1>12 → DMY, p2>12 → MDY)
+#  - Kontrola monotónnosti časové řady pro obě interpretace (počet „zlomů“)
+#  - Přepínač STRICT (default 1 = fail‑fast). STRICT=0 → další heuristiky + fallback na FMT_DEFAULT
+#  - Volitelný FORCE_FMT=DMY|MDY přebije autodetekci (pro všechny soubory)
+#  - Řádky, kde TEMPERATURA i VLHKOST jsou NULL tokeny, se přeskočí + vypíše se hláška „Location X neměří“.
+#  - Ukázky prvních/posledních řádků (SAMPLE_N)
+#
+# Požadavky: bash, awk, coreutils `date` (pro výpočet „posledního týdne“)
+#
+# Příklady:
+#   STRICT=1 ./scripts/indoor_merge_all_sensors.sh
+#   STRICT=0 FMT_DEFAULT=DMY ./scripts/indoor_merge_all_sensors.sh
+#   FORCE_FMT=DMY ./scripts/indoor_merge_all_sensors.sh
+#
+# Kódy chyb:
+#   0  OK
+#   3  Nepodařilo se bezpečně určit formát (STRICT režim)
+#   4  Ve výstupu se objevil měsíc > 12 (bezpečnostní check)
+#   6  Načtena nečíselná hodnota temp/rh (vstupní chyba)
 set -euo pipefail
 
-INPUT_GLOB="./latest/ThermoProSensor_export_*.csv"
-OUTPUT="./gdrive/all_sensors_merged.csv"
+# --- Konfig / ENV ---
+INPUT_GLOB="${INPUT_GLOB:-./latest/ThermoProSensor_export_*.csv}"
+OUTPUT="${OUTPUT:-./gdrive/all_sensors_merged.csv}"
 
-# --- Konfig ---
-SAMPLE_N="${SAMPLE_N:-5}"                         # kolik ukázek vstupu/výstupu vytisknout
+SAMPLE_N="${SAMPLE_N:-5}"                         # kolik ukázek prvních/posledních řádků tisknout
 TZ="${TZ:-Europe/Prague}"
 TODAY="${TODAY:-$(TZ="$TZ" date +%Y-%m-%d)}"      # dnešní datum (YYYY-MM-DD)
+STRICT="${STRICT:-1}"                              # 1 = fail-fast (nejbezpečnější), 0 = pokus o rozřešení + fallback
+FMT_DEFAULT="${FMT_DEFAULT:-DMY}"                  # použito JEN when STRICT=0 a heuristiky selžou
+FORCE_FMT="${FORCE_FMT:-}"                         # pokud nastaveno na DMY/MDY, detekce se přeskočí a použije se toto
 
 # Null tokeny v měřeních
-#  - řádky s OBOU null tokeny se přeskočí vždy (nové chování)
-#  - řádky s JEDNÍM null tokenem se ponechají (NULL v CSV)
-NULL_TOKEN_SAMPLE_N="${NULL_TOKEN_SAMPLE_N:-25}"  # kolik ukázek „null“ řádků vypsat (do logu)
-NULL_TOKEN_DUMP="${NULL_TOKEN_DUMP:-0}"           # 1 = vypiš úplně všechny „null“ řádky
+# - řádky s OBOU null tokeny se přeskočí vždy (nové chování)
+# - řádky s JEDNÍM null tokenem se ponechají (NULL v CSV)
+NULL_TOKEN_SAMPLE_N="${NULL_TOKEN_SAMPLE_N:-25}"   # kolik ukázek „null“ řádků vypsat (stderr)
+NULL_TOKEN_DUMP="${NULL_TOKEN_DUMP:-0}"            # 1 = dump všech „null“ řádků
 
 mkdir -p "$(dirname "$OUTPUT")"
 
@@ -33,6 +51,14 @@ if [ ${#files[@]} -eq 0 ]; then
   echo "Vytvořen prázdný výstup s hlavičkou"
   exit 0
 fi
+
+# Vypočti hranice „posledního týdne“ (inclusive) jako YYYYMMDD celá čísla – monotónní, snadno porovnatelné
+week_start="$(TZ="$TZ" date -d "$TODAY -6 days" +%Y-%m-%d)"
+to_ymd_int () { # $1=YYYY-MM-DD → echo YYYYMMDD
+  echo "$1" | awk -F- '{ printf("%04d%02d%02d\n",$1,$2,$3) }'
+}
+TODAY_YMD_INT="$(to_ymd_int "$TODAY")"
+WEEK_START_YMD_INT="$(to_ymd_int "$week_start")"
 
 # Head/Tail vstupu bez 'tac'
 print_input_samples () {
@@ -48,76 +74,106 @@ print_input_samples () {
   ' "$f" || true
 }
 
-# Detekce formátu pouze z POSLEDNÍHO datového řádku
-detect_fmt_from_last () {
-  local f="$1"
-  awk -F, -v TODAY="$TODAY" '
+# Detekce formátu z CELÉHO souboru s prioritami:
+#  1) poslední řádek == TODAY (jediná interpretace)
+#  2) poslední řádek ∈ [dnes-6, dnes] (jediná interpretace)
+#  3) většina jednoznačných důkazů z celého souboru (p1>12 → DMY; p2>12 → MDY)
+#  4) méně „zlomů“ monotónnosti pod danou interpretací (MDY/DMY)
+#  5) STRICT=1 → UNKNOWN, STRICT=0 → FMT_DEFAULT
+detect_fmt_from_file () {
+  local f="$1" strict="$2" fmt_default="$3"
+  awk -F, \
+      -v TODAY_YMD="$TODAY_YMD_INT" \
+      -v WEEK_START_YMD="$WEEK_START_YMD_INT" \
+      -v STRICT="$strict" \
+      -v FMT_DEFAULT="$fmt_default" \
+  '
     function valid(d,m){ if(m<1||m>12||d<1||d>31) return 0; if((m==4||m==6||m==9||m==11)&&d>30) return 0; if(m==2&&d>29) return 0; return 1 }
     function ymd_num(y,m,d){ return y*10000+m*100+d }
-    function epoch(y,m,d){ return mktime(sprintf("%04d %02d %02d 00 00 00", y,m,d)) }
+    function ts_num(y,m,d,H,M,S){ return (ymd_num(y,m,d)*1000000 + H*10000 + M*100 + S) }
 
     NR>2 {
-      d=$1; t=$2; gsub(/^\xEF\xBB\xBF/,"",d)
-      if (d ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/) {
-        lastd=d; lastt=t
-        p1=substr(d,1,2)+0; p2=substr(d,4,2)+0
-        # sbíráme JEDNOZNAČNÝ důkaz pro fallback
-        if (p1>12 && p2<=12) fmt_hint="DMY"
-        else if (p2>12 && p1<=12) fmt_hint="MDY"
+      date=$1; time=$2; gsub(/^\xEF\xBB\xBF/, "", date)
+      if (date ~ /^[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/ && time ~ /^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?$/) {
+        last_date = date; last_time = time
+        p1=substr(date,1,2)+0; p2=substr(date,4,2)+0; y=substr(date,7,4)+0
+        split(time,t,":"); H=t[1]+0; M=t[2]+0; S=(t[3]?t[3]+0:0)
+
+        # Jednoznačné důkazy (p1>12 → DMY, p2>12 → MDY)
+        if (p1>12 && p2<=12) hint_dmy++
+        else if (p2>12 && p1<=12) hint_mdy++
+
+        # Kandidátní parsování
+        if (valid(p2,p1)) {
+          ts_mdy = ts_num(y,p1,p2,H,M,S)
+          if (prev_mdy>0 && ts_mdy<prev_mdy) breaks_mdy++
+          prev_mdy = ts_mdy
+          ymd_mdy = ymd_num(y,p1,p2)
+          # Počítat i globální „v posledním týdnu“ by šlo, ale stačí nám poslední řádek
+        }
+        if (valid(p1,p2)) {
+          ts_dmy = ts_num(y,p2,p1,H,M,S)
+          if (prev_dmy>0 && ts_dmy<prev_dmy) breaks_dmy++
+          prev_dmy = ts_dmy
+          ymd_dmy = ymd_num(y,p2,p1)
+        }
       }
     }
     END {
-      if (lastd=="") { print "UNKNOWN"; exit }
+      if (last_date=="") { print "UNKNOWN"; exit } # žádná data
 
-      y=substr(lastd,7,4)+0
-      p1=substr(lastd,1,2)+0
-      p2=substr(lastd,4,2)+0
-
-      yT=substr(TODAY,1,4)+0; mT=substr(TODAY,6,2)+0; dT=substr(TODAY,9,2)+0
-      today_epoch = epoch(yT,mT,dT)
-      week_start  = today_epoch - 6*86400
-      day_end     = today_epoch + 86400 - 1
+      y=substr(last_date,7,4)+0
+      p1=substr(last_date,1,2)+0; p2=substr(last_date,4,2)+0
+      split(last_time,t,":"); H=t[1]+0; M=t[2]+0; S=(t[3]?t[3]+0:0)
 
       mdv=valid(p2,p1); dmv=valid(p1,p2)
-      md_y=y; md_m=p1; md_d=p2
-      dm_y=y; dm_m=p2; dm_d=p1
+      md_last_ymd = (mdv? ymd_num(y,p1,p2): -1)
+      dm_last_ymd = (dmv? ymd_num(y,p2,p1): -1)
 
-      mdyn = mdv? ymd_num(md_y,md_m,md_d) : -1
-      dmyn = dmv? ymd_num(dm_y,dm_m,dm_d) : -1
-
-      md_ep = mdv? epoch(md_y,md_m,md_d) : -1
-      dm_ep = dmv? epoch(dm_y,dm_m,dm_d) : -1
-
-      printf("   Poslední řádek (raw): %s %s\n", lastd, lastt) > "/dev/stderr"
+      printf("   Poslední řádek (raw): %s %s\n", last_date, last_time) > "/dev/stderr"
       if (mdv) printf("     • MDY → %04d-%02d-%02d %s (==TODAY? %s; in_last_week? %s)\n",
-                      md_y,md_m,md_d,lastt, (mdyn==ymd_num(yT,mT,dT)?"ANO":"ne"),
-                      (md_ep>=week_start && md_ep<=day_end ? "ANO":"ne")) > "/dev/stderr"
+                      y,p1,p2,last_time,
+                      (md_last_ymd==TODAY_YMD?"ANO":"ne"),
+                      (md_last_ymd>=WEEK_START_YMD && md_last_ymd<=TODAY_YMD ? "ANO":"ne")) > "/dev/stderr"
       else     printf("     • MDY → neplatné datum\n") > "/dev/stderr"
       if (dmv) printf("     • DMY → %04d-%02d-%02d %s (==TODAY? %s; in_last_week? %s)\n",
-                      dm_y,dm_m,dm_d,lastt, (dmyn==ymd_num(yT,mT,dT)?"ANO":"ne"),
-                      (dm_ep>=week_start && dm_ep<=day_end ? "ANO":"ne")) > "/dev/stderr"
+                      y,p2,p1,last_time,
+                      (dm_last_ymd==TODAY_YMD?"ANO":"ne"),
+                      (dm_last_ymd>=WEEK_START_YMD && dm_last_ymd<=TODAY_YMD ? "ANO":"ne")) > "/dev/stderr"
       else     printf("     • DMY → neplatné datum\n") > "/dev/stderr"
 
-      # 1) preferuj TODAY rozhodnutí
-      if (mdyn==ymd_num(yT,mT,dT) && dmyn!=ymd_num(yT,mT,dT)) { print "MDY"; exit }
-      if (dmyn==ymd_num(yT,mT,dT) && mdyn!=ymd_num(yT,mT,dT)) { print "DMY"; exit }
+      printf("     • Evidence: hints DMY=%d, MDY=%d | breaks DMY=%d, MDY=%d\n",
+             hint_dmy+0, hint_mdy+0, breaks_dmy+0, breaks_mdy+0) > "/dev/stderr"
 
-      # 2) pokud přesně jedna interpretace je v posledním týdnu (včetně dneška)
-      inw_mdy = (md_ep>=week_start && md_ep<=day_end)
-      inw_dmy = (dm_ep>=week_start && dm_ep<=day_end)
+      # 1) preferuj TODAY (poslední řádek)
+      if (md_last_ymd==TODAY_YMD && dm_last_ymd!=TODAY_YMD) { print "MDY"; exit }
+      if (dm_last_ymd==TODAY_YMD && md_last_ymd!=TODAY_YMD) { print "DMY"; exit }
+
+      # 2) pokud právě jedna interpretace je v posledním týdnu (včetně dneška)
+      inw_mdy = (md_last_ymd>=WEEK_START_YMD && md_last_ymd<=TODAY_YMD)
+      inw_dmy = (dm_last_ymd>=WEEK_START_YMD && dm_last_ymd<=TODAY_YMD)
       if (inw_mdy && !inw_dmy) { print "MDY"; exit }
       if (inw_dmy && !inw_mdy) { print "DMY"; exit }
 
-      # 3) fallback: jednoznačný důkaz z jiného řádku
-      if (fmt_hint!="") { print fmt_hint; exit }
+      # 3) většina jednoznačných důkazů z CELÉHO souboru
+      if ((hint_dmy+0)>(hint_mdy+0)) { print "DMY"; exit }
+      if ((hint_mdy+0)>(hint_dmy+0)) { print "MDY"; exit }
 
-      # 4) ultimate fallback: lokální default (EU → DMY)
-      printf("     • Fallback: žádný rozhodující signál, volím DMY (lokální default)\n") > "/dev/stderr"
-      print "DMY"
+      # 4) méně zlomů monotónnosti
+      if ((breaks_dmy+0)<(breaks_mdy+0)) { print "DMY"; exit }
+      if ((breaks_mdy+0)<(breaks_dmy+0)) { print "MDY"; exit }
+
+      # 5) Strictness
+      if (STRICT+0==1) {
+        printf("     • Fallback: nejednoznačné → STRICT=1 → vracím UNKNOWN (bezpečný fail)\n") > "/dev/stderr"
+        print "UNKNOWN"; exit
+      } else {
+        printf("     • Fallback: nejednoznačné → STRICT=0 → volím FMT_DEFAULT=%s\n", FMT_DEFAULT) > "/dev/stderr"
+        print FMT_DEFAULT; exit
+      }
     }
   ' "$f"
 }
-
 
 # ==== hlavní běh ====
 tmpdir="$(mktemp -d)"
@@ -136,10 +192,17 @@ for file in "${files[@]}"; do
 
   print_input_samples "$file"
 
-  fmt="$(detect_fmt_from_last "$file")"
-  echo "   => Určený formát: $fmt"
+  # FORCE_FMT má absolutní prioritu
+  if [ -n "$FORCE_FMT" ]; then
+    fmt="$FORCE_FMT"
+    echo "   => Přepsáno FORCE_FMT: $fmt"
+  else
+    fmt="$(detect_fmt_from_file "$file" "$STRICT" "$FMT_DEFAULT")"
+    echo "   => Určený formát: $fmt"
+  fi
+
   if [ "$fmt" = "UNKNOWN" ]; then
-    echo "❌ Nelze spolehlivě určit formát (MDY/DMY) z posledního řádku. Končím."
+    echo "❌ Nelze spolehlivě určit formát (MDY/DMY). Končím (STRICT režim)."
     exit 3
   fi
 
@@ -180,7 +243,7 @@ for file in "${files[@]}"; do
 
       if (had_any) {
         null_any++
-        if (DUMP==1 || shown < '"$NULL_TOKEN_SAMPLE_N"') {
+        if (DUMP==1 || shown < '"${NULL_TOKEN_SAMPLE_N}"') {
           shown++
           printf("  == NULL TOKEN (file=%s line=%d)\n    input:  \"%s,%s,%s,%s\"\n", SRC, NR, $1,$2,raw_temp,raw_rh) > "/dev/stderr"
           printf("    output: \"%s,%s,%s,%s\"%s\n",
