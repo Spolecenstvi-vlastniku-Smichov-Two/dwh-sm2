@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 # indoor_merge_all_sensors.sh — robustní sloučení CSV z ThermoPro + autodetekce formátu datumu
 # -----------------------------------------------------------------------------
-# Funkce:
+# Novinky ve v2:
+#  - Přidaný tie‑breaker pro případy, kdy jsou MDY/DMY zcela symetrické (např. 09/09/2025):
+#      • heuristika „měsíc konstantní, den se mění“ ⇒ DMY; „den konstantní, měsíc se mění“ ⇒ MDY
+#      • ponechán STRICT režim (default 1) – při nejednoznačnosti skončí bezpečně chybou
+#      • v lenient režimu (STRICT=0) se stále používá FMT_DEFAULT (DMY pokud neurčíme)
+#  - Log rozšířen o počty unikátních hodnot p1/p2 (první vs druhá složka datumu)
+#
+# Funkce (shrnutí):
 #  - Detekce MDY/DMY z POSLEDNÍHO řádku s datem + „poslední týden“ (včetně dneška)
 #  - Doplňkově: počítá jednoznačné důkazy z CELÉHO souboru (p1>12 → DMY, p2>12 → MDY)
 #  - Kontrola monotónnosti časové řady pro obě interpretace (počet „zlomů“)
+#  - NOVĚ: tie‑breaker podle variability p1/p2 v rámci souboru
 #  - Přepínač STRICT (default 1 = fail‑fast). STRICT=0 → další heuristiky + fallback na FMT_DEFAULT
 #  - Volitelný FORCE_FMT=DMY|MDY přebije autodetekci (pro všechny soubory)
 #  - Řádky, kde TEMPERATURA i VLHKOST jsou NULL tokeny, se přeskočí + vypíše se hláška „Location X neměří“.
@@ -77,9 +85,13 @@ print_input_samples () {
 # Detekce formátu z CELÉHO souboru s prioritami:
 #  1) poslední řádek == TODAY (jediná interpretace)
 #  2) poslední řádek ∈ [dnes-6, dnes] (jediná interpretace)
-#  3) většina jednoznačných důkazů z celého souboru (p1>12 → DMY; p2>12 → MDY)
-#  4) méně „zlomů“ monotónnosti pod danou interpretací (MDY/DMY)
-#  5) STRICT=1 → UNKNOWN, STRICT=0 → FMT_DEFAULT
+#  3) NOVĚ: p1/p2 variabilita (unikátní hodnoty) —
+#       • uniq(p2)==1 && uniq(p1)>1 → DMY (měsíc je konstantní, dny se mění)
+#       • uniq(p1)==1 && uniq(p2)>1 → MDY (měsíc se mění, den konstantní)
+#  4) většina jednoznačných důkazů z celého souboru (p1>12 → DMY; p2>12 → MDY)
+#  5) méně „zlomů“ monotónnosti pod danou interpretací (MDY/DMY)
+#  6) STRICT=1 → UNKNOWN, STRICT=0 → FMT_DEFAULT
+
 detect_fmt_from_file () {
   local f="$1" strict="$2" fmt_default="$3"
   awk -F, \
@@ -99,6 +111,10 @@ detect_fmt_from_file () {
         p1=substr(date,1,2)+0; p2=substr(date,4,2)+0; y=substr(date,7,4)+0
         split(time,t,":"); H=t[1]+0; M=t[2]+0; S=(t[3]?t[3]+0:0)
 
+        # Unikátní hodnoty p1/p2
+        if (!(p1 in seen_p1)) { seen_p1[p1]=1; uniq_p1++ }
+        if (!(p2 in seen_p2)) { seen_p2[p2]=1; uniq_p2++ }
+
         # Jednoznačné důkazy (p1>12 → DMY, p2>12 → MDY)
         if (p1>12 && p2<=12) hint_dmy++
         else if (p2>12 && p1<=12) hint_mdy++
@@ -109,7 +125,6 @@ detect_fmt_from_file () {
           if (prev_mdy>0 && ts_mdy<prev_mdy) breaks_mdy++
           prev_mdy = ts_mdy
           ymd_mdy = ymd_num(y,p1,p2)
-          # Počítat i globální „v posledním týdnu“ by šlo, ale stačí nám poslední řádek
         }
         if (valid(p1,p2)) {
           ts_dmy = ts_num(y,p2,p1,H,M,S)
@@ -142,8 +157,8 @@ detect_fmt_from_file () {
                       (dm_last_ymd>=WEEK_START_YMD && dm_last_ymd<=TODAY_YMD ? "ANO":"ne")) > "/dev/stderr"
       else     printf("     • DMY → neplatné datum\n") > "/dev/stderr"
 
-      printf("     • Evidence: hints DMY=%d, MDY=%d | breaks DMY=%d, MDY=%d\n",
-             hint_dmy+0, hint_mdy+0, breaks_dmy+0, breaks_mdy+0) > "/dev/stderr"
+      printf("     • Evidence: hints DMY=%d, MDY=%d | breaks DMY=%d, MDY=%d | uniq p1=%d, p2=%d\n",
+             hint_dmy+0, hint_mdy+0, breaks_dmy+0, breaks_mdy+0, uniq_p1+0, uniq_p2+0) > "/dev/stderr"
 
       # 1) preferuj TODAY (poslední řádek)
       if (md_last_ymd==TODAY_YMD && dm_last_ymd!=TODAY_YMD) { print "MDY"; exit }
@@ -155,15 +170,20 @@ detect_fmt_from_file () {
       if (inw_mdy && !inw_dmy) { print "MDY"; exit }
       if (inw_dmy && !inw_mdy) { print "DMY"; exit }
 
-      # 3) většina jednoznačných důkazů z CELÉHO souboru
+      # 3) NOVÝ tie‑breaker: variabilita p1/p2 v rámci souboru
+      #    „měsíc konstantní, den se mění“ → DMY; „den konstantní, měsíc se mění“ → MDY
+      if ((uniq_p2+0)==1 && (uniq_p1+0)>1) { print "DMY"; exit }
+      if ((uniq_p1+0)==1 && (uniq_p2+0)>1) { print "MDY"; exit }
+
+      # 4) většina jednoznačných důkazů z CELÉHO souboru
       if ((hint_dmy+0)>(hint_mdy+0)) { print "DMY"; exit }
       if ((hint_mdy+0)>(hint_dmy+0)) { print "MDY"; exit }
 
-      # 4) méně zlomů monotónnosti
+      # 5) méně zlomů monotónnosti
       if ((breaks_dmy+0)<(breaks_mdy+0)) { print "DMY"; exit }
       if ((breaks_mdy+0)<(breaks_dmy+0)) { print "MDY"; exit }
 
-      # 5) Strictness
+      # 6) Strictness
       if (STRICT+0==1) {
         printf("     • Fallback: nejednoznačné → STRICT=1 → vracím UNKNOWN (bezpečný fail)\n") > "/dev/stderr"
         print "UNKNOWN"; exit
@@ -252,14 +272,14 @@ for file in "${files[@]}"; do
         }
       }
 
-      # Pokud obě hodnoty chybí -> PŘESKOČIT
+      # Pokud obě hodnoty chybí → PŘESKOČIT
       if (had_both) { both_null++; next }
 
       # přísnost na jiné nečíselné řetězce (ponecháme základní kontrolu)
       if (temp!="" && !is_num(temp)) { printf("  !! non_numeric temp | file=%s | raw=\"%s,%s,%s,%s\"\n", SRC,$1,$2,raw_temp,raw_rh) > "/dev/stderr"; exit 6 }
       if (rh  !="" && !is_num(rh))   { printf("  !! non_numeric  rh | file=%s | raw=\"%s,%s,%s,%s\"\n", SRC,$1,$2,raw_temp,raw_rh) > "/dev/stderr"; exit 6 }
 
-      print datetime, temp, rh, loc >> "'"$out_tmp"'"
+      print datetime, temp, rh, loc >> '"$out_tmp"'
     }
 
     END {
@@ -273,6 +293,7 @@ for file in "${files[@]}"; do
   lines=$(awk 'NR>2{c++} END{print c+0}' "$file")
   echo "   Přidáno řádků (vstupních): $lines"
   total_lines=$((total_lines + lines))
+
 done
 
 echo "Datetime,Temperature_Celsius,Relative_Humidity(%),Location" > "$OUTPUT"
