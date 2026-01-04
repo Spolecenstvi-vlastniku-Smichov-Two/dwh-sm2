@@ -32,8 +32,15 @@ def main():
         ('git', '--version'),
         ('jq', '--version'),
         ('curl', '--version'),
-        ('sqlfluff', '--version')
+        ('sqlfluff', '--version'),
+        ('docker', '--version')
     ]
+    
+    # Verify Python version
+    python_ok, python_version = check_command('python3', '--version')
+    if python_ok and '3.12.' not in python_version:
+        print(f"⚠️  Wrong Python version: {python_version} (expected 3.12.x)")
+        all_ok = False
     
     print("🔍 Testing development environment...")
     all_ok = True

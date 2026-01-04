@@ -3,15 +3,15 @@ FROM mcr.microsoft.com/devcontainers/python:3.12
 # Install system dependencies with error handling
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    curl \
-    rclone \
-    jq \
-    git \
-    build-essential \
-    libssl-dev \
-    libffi-dev \
-    python3-dev \
-    duckdb \
+    curl=7.88.1-10+deb12u5 \
+    rclone=1.62.2-1 \
+    jq=1.6-2.1 \
+    git=1:2.39.2-1.1 \
+    build-essential=12.9 \
+    libssl-dev=3.0.11-1~deb12u2 \
+    libffi-dev=3.4.4-1 \
+    python3-dev=3.11.2-1+b1 \
+    duckdb=0.8.1-1 \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

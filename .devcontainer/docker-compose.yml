@@ -17,7 +17,7 @@ services:
     tty: true
     stdin_open: true
     healthcheck:
-      test: ["CMD", "python3", "-c", "import sys; from test_environment import main; sys.exit(0 if main() == 0 else 1)"]
+      test: ["CMD", "python3", "/workspace/.devcontainer/test_environment.py"]
       interval: 30s
       timeout: 15s
       retries: 5
