@@ -1,8 +1,7 @@
-dwh_sm2:
-
+sm2:
   target: dev
   outputs:
     dev:
       type: duckdb
-      path: 'dwh_sm2.duckdb'
+      path: '/workspace/db/sm2.duckdb'
       threads: 24
