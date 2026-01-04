@@ -19,11 +19,11 @@ RUN curl -LO https://github.com/duckdb/duckdb/releases/download/v0.9.2/duckdb_cl
     unzip duckdb_cli-linux-aarch64.zip -d /usr/local/bin && \
     rm duckdb_cli-linux-aarch64.zip
 
-# Install Influx CLI - use universal version
-RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.7-linux-amd64.tar.gz -o influx-cli.tar.gz \
-    && tar -xzf influx-cli.tar.gz \
-    && mv influxdb2-client-2.7.7-linux-amd64/influx /usr/local/bin/ \
-    && rm -rf influx-cli.tar.gz influxdb2-client-2.7.7-linux-amd64 \
+# Install Influx CLI from official Debian package
+RUN curl -s https://repos.influxdata.com/influxdb.key | gpg --dearmor > /etc/apt/trusted.gpg.d/influxdb.gpg \
+    && echo "deb [signed-by=/etc/apt/trusted.gpg.d/influxdb.gpg] https://repos.influxdata.com/debian stable main" > /etc/apt/sources.list.d/influxdb.list \
+    && apt-get update \
+    && apt-get install -y influxdb2-client \
     && influx version
 
 # Install Python dependencies with hash checking
