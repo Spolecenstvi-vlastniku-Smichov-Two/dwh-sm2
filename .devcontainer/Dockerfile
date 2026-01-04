@@ -15,9 +15,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install DuckDB from official releases
-RUN curl -LO https://github.com/duckdb/duckdb/releases/download/v1.0.0/duckdb_cli-linux-arm64.zip && \
-    unzip duckdb_cli-linux-arm64.zip -d /usr/local/bin && \
-    rm duckdb_cli-linux-arm64.zip
+RUN curl -LO https://github.com/duckdb/duckdb/releases/download/v0.9.2/duckdb_cli-linux-aarch64.zip && \
+    unzip duckdb_cli-linux-aarch64.zip -d /usr/local/bin && \
+    rm duckdb_cli-linux-aarch64.zip
 
 # Install Influx CLI
 RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/').tar.gz -o influx-cli.tar.gz \
