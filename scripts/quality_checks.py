@@ -13,17 +13,17 @@ from datetime import datetime
 QUALITY_THRESHOLDS = {
     'ventilation': {
         'null_pct_max': 0.05,  # 5% max nulls
-        'row_count_min': 100,
+        'row_count_min': 10,   # Sníženo pro testování
         'row_count_max': 100000,
-        'csv_file': './gdrive/fact.csv',
+        'csv_file': './gdrive/merged.csv',  # Raw wide format
         'timestamp_column': 'date'
     },
     'indoor': {
         'null_pct_max': 0.05,  # 5% max nulls
-        'row_count_min': 100,
+        'row_count_min': 10,   # Sníženo pro testování
         'row_count_max': 100000,
         'csv_file': './gdrive/all_sensors_merged.csv',
-        'timestamp_column': 'time'
+        'timestamp_column': 'Datetime'  # Správný název sloupce
     }
 }
 

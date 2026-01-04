@@ -12,11 +12,11 @@ from pathlib import Path
 EXPECTED_SCHEMAS = {
     'ventilation': {
         'required_columns': {'date', 'KOT1/Teplota venkovní', 'KOT1/Vlhkost venkovní'},
-        'csv_file': './gdrive/fact.csv'
+        'csv_file': './gdrive/merged.csv'  # Raw wide format
     },
     'indoor': {
-        'required_columns': {'time', 'location', 'measurement', 'data_key', 'data_value'},
-        'csv_file': './gdrive/all_sensors_merged.csv'
+        'required_columns': {'Datetime', 'Temperature_Celsius', 'Relative_Humidity(%)', 'Location'},
+        'csv_file': './gdrive/all_sensors_merged.csv'  # Raw merged format
     }
 }
 
