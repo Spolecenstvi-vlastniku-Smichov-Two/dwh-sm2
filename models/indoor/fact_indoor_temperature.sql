@@ -7,11 +7,11 @@ mapped as (
         source.Datetime as "time", --noqa
         mapping.location,
         'temp_indoor' as data_key,
-        source.temperature_celsius as data_value
+        source.Temperature_Celsius as data_value
     from source
     inner join {{ ref('mapping_indoor') }} as mapping --noqa
-        on source.location = mapping.sensor
-    where source.datetime is not null
+        on source.Location = mapping.sensor
+    where source.Datetime is not null
 ),
 
 params as (

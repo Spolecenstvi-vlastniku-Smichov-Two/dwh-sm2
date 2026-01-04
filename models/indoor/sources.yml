@@ -11,11 +11,11 @@ sources:
       - name: fact_indoor_temperature_original
         freshness:
         config:
-          external_location: "read_csv('./gdrive/fact_indoor_temperature.csv')"
+          external_location: "read_csv('./gdrive/fact_indoor_temperature_original.csv')"
       - name: fact_indoor_humidity_original
         freshness:
         config:
-          external_location: "read_csv('./gdrive/fact_indoor_humidity.csv')"
+          external_location: "read_csv('./gdrive/fact_indoor_humidity_original.csv')"
       - name: merged_indoor
         config:
           external_location: "read_csv('./gdrive/all_sensors_merged.csv')"

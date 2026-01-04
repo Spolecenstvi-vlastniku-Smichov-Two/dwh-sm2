@@ -1,5 +1,5 @@
 with source as ( --noqa
-    select cast(columns(*) as varchar) from {{ source('csv_google','merged') }}
+    select * from {{ source('csv_google','merged') }}
 ),
 
 unpivoted as (

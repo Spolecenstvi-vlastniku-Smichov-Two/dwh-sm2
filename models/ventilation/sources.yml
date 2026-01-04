@@ -11,7 +11,7 @@ sources:
       - name: fact_original
         freshness:
         config:
-          external_location: "read_csv('./gdrive/fact.csv')"
+          external_location: "read_csv('./gdrive/fact_original.csv')"
       - name: merged
         config:
           external_location: "read_csv('./gdrive/merged.csv')"
