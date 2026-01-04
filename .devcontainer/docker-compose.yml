@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  dwh-sm2-devcontainer:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    tty: true
+    environment:
+      - PYTHONUNBUFFERED=1

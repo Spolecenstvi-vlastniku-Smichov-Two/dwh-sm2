@@ -21,8 +21,8 @@ COPY requirements.txt /tmp/pip-tmp/
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements.txt \
     && rm -rf /tmp/pip-tmp
 
-# Install dbt-duckdb
-RUN pip3 install dbt-duckdb==1.8.0
+# Install dbt
+RUN pip3 install dbt-core==1.8.0 dbt-duckdb==1.8.0
 
 # Set up workspace
 RUN mkdir -p /workspace
