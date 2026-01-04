@@ -16,13 +16,16 @@ RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.
     && dpkg -i influx-cli.deb \
     && rm influx-cli.deb
 
-# Install Python dependencies from requirements.txt
+# Install Python dependencies
 COPY requirements.txt /tmp/pip-tmp/
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements.txt \
     && rm -rf /tmp/pip-tmp
 
-# Install dbt
-RUN pip3 install dbt-core==1.8.0 dbt-duckdb==1.8.0
+# Install development tools
+RUN pip3 install black pylint mypy pytest pytest-cov
+
+# Create workspace and set permissions
+RUN mkdir -p /workspace && chown vscode:vscode /workspace
 
 # Set up workspace
 RUN mkdir -p /workspace
