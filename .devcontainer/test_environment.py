@@ -36,6 +36,18 @@ def main():
         ('docker', '--version')
     ]
     
+    # Additional dbt diagnostics
+    print("\n🔍 Running dbt debug...")
+    dbt_debug = subprocess.run(
+        ['dbt', 'debug'],
+        capture_output=True,
+        text=True
+    )
+    print(dbt_debug.stdout)
+    if dbt_debug.returncode != 0:
+        print(f"❌ dbt debug failed with code {dbt_debug.returncode}")
+        print(dbt_debug.stderr)
+    
     # Verify Python version
     python_ok, python_version = check_command('python3', '--version')
     if python_ok and '3.12.' not in python_version:

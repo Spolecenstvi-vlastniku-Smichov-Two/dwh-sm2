@@ -26,9 +26,17 @@ COPY requirements.txt /tmp/pip-tmp/
 RUN pip3 install --no-cache-dir --require-hashes -r /tmp/pip-tmp/requirements.txt && \
     rm -rf /tmp/pip-tmp
 
-# Install development tools
-RUN pip3 install black pylint mypy pytest pytest-cov dbt-duckdb influxdb-client python-dotenv \
+# Install dbt with explicit version
+RUN pip3 install dbt-core==1.8.0 dbt-duckdb==1.8.0
+
+# Install other development tools
+RUN pip3 install black pylint mypy pytest pytest-cov influxdb-client python-dotenv \
     pandas pyarrow sqlfluff csvkit
+
+# Set up dbt profile
+RUN mkdir -p /home/vscode/.dbt && \
+    echo "sm2:\n  target: dev\n  outputs:\n    dev:\n      type: duckdb\n      path: /workspace/db/sm2.duckdb" > /home/vpcodes/.dbt/profiles.yml && \
+    chown -R vscode:vscode /home/vscode/.dbt
 
 # Create workspace directories
 RUN mkdir -p /workspace/{db,test_data,gdrive} && chown vscode:vscode /workspace
