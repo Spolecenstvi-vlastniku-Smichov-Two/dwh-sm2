@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   dwh-sm2-devcontainer:
     container_name: dwh-sm2-devcontainer
