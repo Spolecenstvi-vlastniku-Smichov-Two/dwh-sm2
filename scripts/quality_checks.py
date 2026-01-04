@@ -58,7 +58,11 @@ def check_data_quality(datasource_name: str, csv_file: str) -> bool:
         print("------")
         
         # Check null percentage
-        null_pct = df.isnull().sum().sum() / (len(df) * len(df.columns))
+        total_cells = len(df) * len(df.columns)
+        if total_cells == 0:
+            null_pct = 0.0
+        else:
+            null_pct = df.isnull().sum().sum() / total_cells
         threshold = config['null_pct_max']
         
         if null_pct > threshold:

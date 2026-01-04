@@ -147,6 +147,12 @@ class E2ETestRunner:
         if (self.test_dir / "indoor").exists():
             shutil.copytree(self.test_dir / "indoor", self.gdrive_dir / "indoor", dirs_exist_ok=True)
         
+        # Vytvoření dummy fact souborů pro validaci
+        if (self.test_dir / "ventilation" / "Graph_test_data.csv").exists():
+            shutil.copy(self.test_dir / "ventilation" / "Graph_test_data.csv", self.gdrive_dir / "fact.csv")
+        if (self.test_dir / "indoor" / "ThermoProSensor_export_test.csv").exists():
+            shutil.copy(self.test_dir / "indoor" / "ThermoProSensor_export_test.csv", self.gdrive_dir / "all_sensors_merged.csv")
+        
         # Test 1: Data-driven ingest
         print("  1️⃣ Test data-driven ingest...")
         try:
@@ -157,7 +163,9 @@ class E2ETestRunner:
             if result.returncode == 0:
                 print("    ✅ Data-driven ingest úspěšný")
             else:
-                print(f"    ⚠️  Data-driven ingest selhal: {result.stderr}")
+                print(f"    ⚠️  Data-driven ingest selhal: {result.stderr.strip()}")
+                if result.stdout.strip():
+                    print(f"    📄 Stdout: {result.stdout.strip()}")
         except Exception as e:
             print(f"    ⚠️  Chyba při ingest testu: {e}")
         
@@ -171,7 +179,9 @@ class E2ETestRunner:
             if result.returncode == 0:
                 print("    ✅ Schema validation úspěšná")
             else:
-                print(f"    ⚠️  Schema validation selhala: {result.stderr}")
+                print(f"    ⚠️  Schema validation selhala: {result.stderr.strip()}")
+                if result.stdout.strip():
+                    print(f"    📄 Stdout: {result.stdout.strip()}")
         except Exception as e:
             print(f"    ⚠️  Chyba při schema validation: {e}")
         
@@ -185,7 +195,9 @@ class E2ETestRunner:
             if result.returncode == 0:
                 print("    ✅ Quality checks úspěšné")
             else:
-                print(f"    ⚠️  Quality checks selhaly: {result.stderr}")
+                print(f"    ⚠️  Quality checks selhaly: {result.stderr.strip()}")
+                if result.stdout.strip():
+                    print(f"    📄 Stdout: {result.stdout.strip()}")
         except Exception as e:
             print(f"    ⚠️  Chyba při quality checks: {e}")
     
@@ -236,7 +248,9 @@ class E2ETestRunner:
             if result.returncode == 0:
                 print("    ✅ dbt parse úspěšný")
             else:
-                print(f"    ⚠️  dbt parse selhal: {result.stderr}")
+                print(f"    ⚠️  dbt parse selhal: {result.stderr.strip()}")
+                if result.stdout.strip():
+                    print(f"    📄 Stdout: {result.stdout.strip()}")
         except Exception as e:
             print(f"    ⚠️  Chyba při dbt parse: {e}")
         
@@ -250,7 +264,9 @@ class E2ETestRunner:
             if result.returncode == 0:
                 print("    ✅ dbt seed úspěšný")
             else:
-                print(f"    ⚠️  dbt seed selhal: {result.stderr}")
+                print(f"    ⚠️  dbt seed selhal: {result.stderr.strip()}")
+                if result.stdout.strip():
+                    print(f"    📄 Stdout: {result.stdout.strip()}")
         except Exception as e:
             print(f"    ⚠️  Chyba při dbt seed: {e}")
         
@@ -271,7 +287,9 @@ class E2ETestRunner:
                     else:
                         print(f"      ❌ {file} chybí")
             else:
-                print(f"    ⚠️  dbt run selhal: {result.stderr}")
+                print(f"    ⚠️  dbt run selhal: {result.stderr.strip()}")
+                if result.stdout.strip():
+                    print(f"    📄 Stdout: {result.stdout.strip()}")
         except Exception as e:
             print(f"    ⚠️  Chyba při dbt run: {e}")
     
