@@ -429,6 +429,37 @@ class E2ETestRunner:
         }
         indoor_hum_df = pd.DataFrame(indoor_hum_data)
         indoor_hum_df.to_csv(self.gdrive_dir / "fact_indoor_humidity.csv", index=False)
+        
+        # Vytvoření dummy _original souborů pro dbt UNION
+        # fact_original.csv (ventilation historical data)
+        ventilation_original_data = {
+            'time': pd.date_range(datetime.now() - timedelta(days=60), periods=30, freq='D'),
+            'location': ['outdoor'] * 30,
+            'data_key': ['temperature'] * 30,
+            'data_value': [10 + np.random.normal(0, 3) for _ in range(30)]
+        }
+        ventilation_original_df = pd.DataFrame(ventilation_original_data)
+        ventilation_original_df.to_csv(self.gdrive_dir / "fact_original.csv", index=False)
+        
+        # fact_indoor_temperature_original.csv
+        indoor_temp_original_data = {
+            'time': pd.date_range(datetime.now() - timedelta(days=60), periods=30, freq='D'),
+            'location': ['Living Room'] * 30,
+            'data_key': ['temperature'] * 30,
+            'data_value': [18 + np.random.normal(0, 2) for _ in range(30)]
+        }
+        indoor_temp_original_df = pd.DataFrame(indoor_temp_original_data)
+        indoor_temp_original_df.to_csv(self.gdrive_dir / "fact_indoor_temperature_original.csv", index=False)
+        
+        # fact_indoor_humidity_original.csv
+        indoor_hum_original_data = {
+            'time': pd.date_range(datetime.now() - timedelta(days=60), periods=30, freq='D'),
+            'location': ['Living Room'] * 30,
+            'data_key': ['humidity'] * 30,
+            'data_value': [40 + np.random.normal(0, 5) for _ in range(30)]
+        }
+        indoor_hum_original_df = pd.DataFrame(indoor_hum_original_data)
+        indoor_hum_original_df.to_csv(self.gdrive_dir / "fact_indoor_humidity_original.csv", index=False)
 
     def _create_dummy_aggregated_files(self):
         """Vytvoření dummy agregovaných souborů pro test"""
