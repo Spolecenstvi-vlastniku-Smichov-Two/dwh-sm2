@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   dwh-sm2-devcontainer:
     container_name: dwh-sm2-devcontainer
@@ -12,13 +14,9 @@ services:
     working_dir: /workspace
     tty: true
     stdin_open: true
-    command: >
-      bash -c "/tmp/influx-setup.sh &&
-               echo '🚀 Development container ready!' &&
-               tail -f /dev/null"
     environment:
       - PYTHONUNBUFFERED=1
-      - DBT_PROFILES_DIR=/workspace 
+      - DBT_PROFILES_DIR=/workspace
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_ORG=dev
       - INFLUX_TOKEN=devtoken
@@ -27,7 +25,8 @@ services:
       - "8080:8080"
       - "8086:8086"
     depends_on:
-      - influxdb
+      influxdb:
+        condition: service_healthy
 
   influxdb:
     image: influxdb:2.7
@@ -41,3 +40,8 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=dev
       - DOCKER_INFLUXDB_INIT_BUCKET=sensor_data
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
