@@ -73,26 +73,33 @@ with open(output_file, encoding="utf-8") as f:
             break
         print(line.strip())
 
+# SAFE MODE - ochrana proti kontaminaci InfluxDB
+SAFE_MODE = os.getenv("SAFE_MODE", "1")  # Default: bezpečný režim
+TEST_MODE = os.getenv("TEST_MODE", "0")  # Explicitní test režim
+
 # --- Import dat do InfluxDB ---
-print("\n📥 Importuji data do InfluxDB...")
-try:
-    import_result = subprocess.run([
-        "influx", "write",
-        "--org", os.getenv("INFLUX_ORG", "dev"),
-        "--token", os.getenv("INFLUX_TOKEN", "devtoken"),
-        "--host", os.getenv("INFLUX_URL", "http://influxdb:8086"),
-        "--bucket", "sensor_data",
-        "--file", output_file
-    ], capture_output=True, text=True, timeout=60)
-    
-    if import_result.returncode == 0:
-        print(f"✅ Data úspěšně importována do InfluxDB")
-        print(f"   Řádků: {len(merged_df)}")
-    else:
-        print(f"❌ Import do InfluxDB selhal: {import_result.stderr}")
+if SAFE_MODE == "1" and TEST_MODE != "1":
+    print("\n🛡️  SAFE MODE: Import do InfluxDB přeskočen")
+else:
+    print("\n📥 Importuji data do InfluxDB...")
+    try:
+        import_result = subprocess.run([
+            "influx", "write",
+            "--org", os.getenv("INFLUX_ORG", "dev"),
+            "--token", os.getenv("INFLUX_TOKEN", "devtoken"),
+            "--host", os.getenv("INFLUX_URL", "http://influxdb:8086"),
+            "--bucket", "sensor_data",
+            "--file", output_file
+        ], capture_output=True, text=True, timeout=60)
         
-except Exception as e:
-    print(f"❌ Chyba při importu do InfluxDB: {e}")
+        if import_result.returncode == 0:
+            print(f"✅ Data úspěšně importována do InfluxDB")
+            print(f"   Řádků: {len(merged_df)}")
+        else:
+            print(f"❌ Import do InfluxDB selhal: {import_result.stderr}")
+            
+    except Exception as e:
+        print(f"❌ Chyba při importu do InfluxDB: {e}")
 
 # --- Nově přidáno: zjištění unikátních měsíců ve vstupních datech ---
 merged_df["_time_dt"] = pd.to_datetime(merged_df["_time"])

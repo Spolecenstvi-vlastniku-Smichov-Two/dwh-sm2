@@ -21,6 +21,10 @@ OUT_LICENSE = OUT_DIR / "LICENSE"
 LOCATION_MAP_FILE = Path("./seeds/location_map.csv")
 GDRIVE_TARGET_DIR = "sm2drive:Public"   # cílový adresář na Google Drive
 
+# SAFE MODE - ochrana proti přepsání produkčních dat
+SAFE_MODE = os.getenv("SAFE_MODE", "1")  # Default: bezpečný režim
+TEST_MODE = os.getenv("TEST_MODE", "0")  # Explicitní test režim
+
 REQUIRED_COLS = ["time", "location", "source", "measurement", "data_key", "data_value"]
 
 def find_monthly_files() -> list[str]:
@@ -146,6 +150,10 @@ License text: https://creativecommons.org/licenses/by/4.0/
     print(f"📜 LICENSE vygenerováno: {OUT_LICENSE}")
 
 def upload_to_drive(path: Path):
+    if SAFE_MODE == "1" and TEST_MODE != "1":
+        print(f"🛡️  SAFE MODE: Upload přeskočen pro {path.name}")
+        return
+    
     rc = subprocess.run(
         ["rclone", "copyto", str(path), f"{GDRIVE_TARGET_DIR}/{path.name}"],
         capture_output=True, text=True

@@ -551,7 +551,12 @@ class E2ETestRunner:
     def run_full_test(self):
         """Spuštění kompletního end-to-end testu"""
         print("🚀 Spouštím kompletní E2E test SM2 Data Pipeline")
+        print("🛡️  SAFE MODE aktivní - žádné uploady na produkční Google Drive")
         print("=" * 60)
+        
+        # Nastavení SAFE MODE pro všechny skripty
+        os.environ["SAFE_MODE"] = "1"
+        os.environ["TEST_MODE"] = "1"
         
         try:
             self.setup_test_environment()

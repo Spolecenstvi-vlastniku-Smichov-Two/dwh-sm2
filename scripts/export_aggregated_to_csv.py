@@ -13,6 +13,10 @@ BUCKET = "sensor_data"
 EXPORT_DIR = "./gdrive"
 GDRIVE_REMOTE = "sm2drive:Normalized"  # kam pushnout agregované CSV
 
+# SAFE MODE - ochrana proti přepsání produkčních dat
+SAFE_MODE = os.getenv("SAFE_MODE", "1")  # Default: bezpečný režim
+TEST_MODE = os.getenv("TEST_MODE", "0")  # Explicitní test režim
+
 Path(EXPORT_DIR).mkdir(parents=True, exist_ok=True)
 
 def run_query_file(flux_query: str, label: str) -> str | None:
@@ -124,13 +128,16 @@ def clean_and_write_monthly(df: pd.DataFrame, measurement: str) -> list[str]:
         g2.to_csv(fpath, index=False)
         print(f"✅ Uloženo: {fpath}")
 
-        # Upload na GDrive
-        rc = subprocess.run(["rclone", "copyto", fpath, f"{GDRIVE_REMOTE}/{fname}"],
-                            capture_output=True, text=True)
-        if rc.returncode != 0:
-            print(f"⚠️ Upload selhal pro {fname}: {rc.stderr.strip()}")
+        # Upload na GDrive (pouze pokud není SAFE_MODE)
+        if SAFE_MODE == "1" and TEST_MODE != "1":
+            print(f"🛡️  SAFE MODE: Upload přeskočen pro {fname}")
         else:
-            print(f"☁️ Upload hotov: {GDRIVE_REMOTE}/{fname}")
+            rc = subprocess.run(["rclone", "copyto", fpath, f"{GDRIVE_REMOTE}/{fname}"],
+                                capture_output=True, text=True)
+            if rc.returncode != 0:
+                print(f"⚠️ Upload selhal pro {fname}: {rc.stderr.strip()}")
+            else:
+                print(f"☁️ Upload hotov: {GDRIVE_REMOTE}/{fname}")
 
         out_files.append(fpath)
 
