@@ -28,9 +28,9 @@ RUN curl -s https://repos.influxdata.com/influxdata-archive_compat.key | gpg --d
     rm -rf /var/lib/apt/lists/* && \
     influx version
 
-# Install Python dependencies with hash checking
+# Install Python dependencies
 COPY requirements.txt /tmp/pip-tmp/
-RUN pip3 install --no-cache-dir --require-hashes -r /tmp/pip-tmp/requirements.txt && \
+RUN pip3 install --no-cache-dir -r /tmp/pip-tmp/requirements.txt && \
     rm -rf /tmp/pip-tmp
 
 # Install dbt with explicit version
