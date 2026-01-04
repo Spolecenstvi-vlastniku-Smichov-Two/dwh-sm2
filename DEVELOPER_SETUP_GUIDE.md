@@ -227,6 +227,46 @@ git --version
 
 ---
 
+## DevContainer Setup
+
+Visual Studio Code supports development containers (devcontainers) for consistent development environments.
+
+### Prerequisites
+
+1. Docker Desktop installed and running
+2. VSCode Dev Containers extension installed
+
+### Setup Steps
+
+1. Open project in VSCode
+2. Press `Cmd+Shift+P` → "Dev Containers: Reopen in Container"
+3. Wait for container to build (first time may take 5-10 minutes)
+4. Verify environment:
+
+```bash
+python3 --version
+# Expected: Python 3.12.x
+
+rclone --version
+# Expected: rclone v1.66.0
+
+dbt --version
+# Expected: dbt version 1.7.0
+```
+
+### Troubleshooting
+
+**Issue**: Devcontainer fails to start  
+**Solution**:  
+1. Check Docker Desktop is running
+2. Verify sufficient disk space (needs ~2GB)
+3. Check logs in VSCode output panel
+
+**Issue**: Missing dependencies  
+**Solution**:  
+1. Rebuild container (`Cmd+Shift+P` → "Dev Containers: Rebuild Container")
+2. Check `.devcontainer/Dockerfile` for required packages
+
 ## VSCode Configuration
 
 ### Extension Installation
