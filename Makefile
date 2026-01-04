@@ -28,7 +28,11 @@ setup:
 
 test-quick:
 	@echo "🚀 Spouštím rychlý E2E test..."
-	bash scripts/test_e2e_quick.sh
+	@echo "🔍 Kontrola závislostí..."
+	@which python3 > /dev/null || (echo "❌ Chybí: python3" && exit 1)
+	@which dbt > /dev/null || (echo "❌ Chybí: dbt" && exit 1)
+	@echo "✅ Základní závislosti dostupné"
+	python3 scripts/test_e2e_pipeline.py --skip-influx
 
 test-full:
 	@echo "🚀 Spouštím kompletní E2E test..."
@@ -49,24 +53,11 @@ test-dbt:
 
 test-influx:
 	@echo "📊 Test InfluxDB pipeline"
-	@echo "Spouštím InfluxDB Docker..."
-	docker run -d --name influxdb-test \
-		-p 8086:8086 \
-		-e DOCKER_INFLUXDB_INIT_MODE=setup \
-		-e DOCKER_INFLUXDB_INIT_USERNAME=dev \
-		-e DOCKER_INFLUXDB_INIT_PASSWORD=devpassword \
-		-e DOCKER_INFLUXDB_INIT_ORG=dev \
-		-e DOCKER_INFLUXDB_INIT_BUCKET=sensor_data \
-		-e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken \
-		influxdb:2.7 || true
-	@echo "Čekám na spuštění InfluxDB..."
-	sleep 10
+	@echo "Kontroluji InfluxDB službu..."
 	curl -f http://localhost:8086/health
+	@echo "✅ InfluxDB je dostupný"
 	python3 scripts/prepare_annotated_csv.py || true
 	python3 scripts/export_aggregated_to_csv.py || true
-	@echo "Zastavuji test InfluxDB..."
-	docker stop influxdb-test || true
-	docker rm influxdb-test || true
 
 clean:
 	@echo "🧹 Úklid testovacích souborů..."
