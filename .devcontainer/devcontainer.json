@@ -15,7 +15,6 @@
                 "bastienboutonnet.vscode-dbt",
                 "mutantdino.resourcemonitor"
             ],
-            "platform": "linux/arm64",
             "settings": {
                 "python.pythonPath": "/usr/local/bin/python",
                 "python.linting.enabled": true,
