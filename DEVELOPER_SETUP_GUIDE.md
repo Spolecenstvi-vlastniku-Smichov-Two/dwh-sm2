@@ -20,9 +20,22 @@
 
 ---
 
-## Quick Start
+## Quick Start (DevContainer)
 
-Copy-paste these commands to get running in ~10 minutes:
+1. Install Docker Desktop
+2. Install VSCode with Dev Containers extension
+3. Clone repository:
+   ```bash
+   git clone https://github.com/Spolecenstvi-vlastniku-Smichov-Two/dwh-sm2.git
+   ```
+4. Open in VSCode and run:
+   ```bash
+   Cmd+Shift+P → "Dev Containers: Reopen in Container"
+   ```
+5. Verify setup:
+   ```bash
+   python3 .devcontainer/test_environment.py
+   ```
 
 ```bash
 # 1. Navigate to repo
