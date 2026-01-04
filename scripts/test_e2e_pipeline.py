@@ -332,15 +332,24 @@ class E2ETestRunner:
         # Kontrola InfluxDB dostupnosti
         print("  1️⃣ Test InfluxDB připojení...")
         try:
+            # Zkusíme nejprve devcontainer URL, pak localhost
             result = subprocess.run([
-                "curl", "-f", "http://localhost:8086/health"
+                "curl", "-f", "http://influxdb:8086/health"
             ], capture_output=True, text=True, timeout=10)
             
             if result.returncode == 0:
-                print("    ✅ InfluxDB dostupný")
+                print("    ✅ InfluxDB dostupný (devcontainer)")
             else:
-                print("    ⚠️  InfluxDB nedostupný - spouštím Docker...")
-                self._start_influxdb_docker()
+                # Fallback na localhost
+                result = subprocess.run([
+                    "curl", "-f", "http://localhost:8086/health"
+                ], capture_output=True, text=True, timeout=10)
+                
+                if result.returncode == 0:
+                    print("    ✅ InfluxDB dostupný (localhost)")
+                else:
+                    print("    ⚠️  InfluxDB nedostupný na obou URL - přeskakujem Docker start v devcontaineru")
+                    return
         except Exception as e:
             print(f"    ⚠️  Chyba při kontrole InfluxDB: {e}")
             return
