@@ -19,6 +19,7 @@ import sys
 import os
 import shutil
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from datetime import datetime, timedelta
 import tempfile
@@ -90,14 +91,14 @@ class E2ETestRunner:
         
         # Generování 30 dní dat s hodinovými záznamy
         start_date = datetime.now() - timedelta(days=30)
-        dates = pd.date_range(start_date, periods=30*24, freq='H')
+        dates = pd.date_range(start_date, periods=30*24, freq='h')
         
         ventilation_data = {
             'date': dates.strftime('%Y-%m-%d %H:%M:%S'),
-            'KOT1/Teplota venkovní': [15 + 10 * pd.np.sin(i/24 * 2 * pd.np.pi) + pd.np.random.normal(0, 2) for i in range(len(dates))],
-            'KOT1/Vlhkost venkovní': [60 + 20 * pd.np.sin(i/24 * 2 * pd.np.pi + 1) + pd.np.random.normal(0, 5) for i in range(len(dates))],
-            'KOT1/Rychlost větru': [5 + 3 * pd.np.random.random() for _ in range(len(dates))],
-            'KOT1/Tlak': [1013 + pd.np.random.normal(0, 10) for _ in range(len(dates))]
+            'KOT1/Teplota venkovní': [15 + 10 * np.sin(i/24 * 2 * np.pi) + np.random.normal(0, 2) for i in range(len(dates))],
+            'KOT1/Vlhkost venkovní': [60 + 20 * np.sin(i/24 * 2 * np.pi + 1) + np.random.normal(0, 5) for i in range(len(dates))],
+            'KOT1/Rychlost větru': [5 + 3 * np.random.random() for _ in range(len(dates))],
+            'KOT1/Tlak': [1013 + np.random.normal(0, 10) for _ in range(len(dates))]
         }
         
         ventilation_df = pd.DataFrame(ventilation_data)
@@ -118,7 +119,7 @@ class E2ETestRunner:
                     'location': location,
                     'measurement': 'temperature',
                     'data_key': 'temperature',
-                    'data_value': 20 + pd.np.random.normal(0, 2)
+                    'data_value': 20 + np.random.normal(0, 2)
                 })
                 # Vlhkost
                 indoor_data.append({
@@ -126,7 +127,7 @@ class E2ETestRunner:
                     'location': location,
                     'measurement': 'humidity',
                     'data_key': 'humidity',
-                    'data_value': 45 + pd.np.random.normal(0, 5)
+                    'data_value': 45 + np.random.normal(0, 5)
                 })
         
         indoor_df = pd.DataFrame(indoor_data)
@@ -390,12 +391,12 @@ class E2ETestRunner:
         
         # Additive data
         additive_data = {
-            'time': pd.date_range(datetime.now() - timedelta(days=30), periods=30*24, freq='H'),
+            'time': pd.date_range(datetime.now() - timedelta(days=30), periods=30*24, freq='h'),
             'location': ['outdoor'] * (30*24),
             'source': ['ventilation'] * (30*24),
             'measurement': ['energy'] * (30*24),
             'data_key': ['consumption'] * (30*24),
-            'data_value': [pd.np.random.random() * 100 for _ in range(30*24)]
+            'data_value': [np.random.random() * 100 for _ in range(30*24)]
         }
         
         additive_df = pd.DataFrame(additive_data)
@@ -403,12 +404,12 @@ class E2ETestRunner:
         
         # Non-additive data
         nonadditive_data = {
-            'time': pd.date_range(datetime.now() - timedelta(days=30), periods=30*24, freq='H'),
+            'time': pd.date_range(datetime.now() - timedelta(days=30), periods=30*24, freq='h'),
             'location': ['outdoor'] * (30*24),
             'source': ['ventilation'] * (30*24),
             'measurement': ['temperature'] * (30*24),
             'data_key': ['temperature'] * (30*24),
-            'data_value': [15 + pd.np.random.normal(0, 5) for _ in range(30*24)]
+            'data_value': [15 + np.random.normal(0, 5) for _ in range(30*24)]
         }
         
         nonadditive_df = pd.DataFrame(nonadditive_data)
