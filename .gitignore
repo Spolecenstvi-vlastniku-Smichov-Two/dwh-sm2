@@ -28,3 +28,4 @@ latest/
 !docs/**
 !seeds/**
 !scripts/**
+.aider*
