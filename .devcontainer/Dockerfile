@@ -25,7 +25,10 @@ RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requ
     && rm -rf /tmp/pip-tmp
 
 # Install development tools
-RUN pip3 install black pylint mypy pytest pytest-cov dbt-duckdb
+RUN pip3 install black pylint mypy pytest pytest-cov dbt-duckdb influxdb-client python-dotenv
+
+# Create workspace directories
+RUN mkdir -p /workspace/{db,test_data,gdrive} && chown vscode:vscode /workspace
 
 # Create workspace and seed test data
 RUN mkdir -p /workspace/test_data && chown vscode:vscode /workspace

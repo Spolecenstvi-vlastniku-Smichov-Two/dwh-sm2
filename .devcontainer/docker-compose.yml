@@ -23,6 +23,9 @@ services:
       - INFLUX_TOKEN=devtoken
       - INFLUX_BUCKET=sensor_data
       - DUCKDB_DATABASE=/workspace/db/sm2.duckdb
+      - GDRIVE_REMOTE=sm2drive
+      - LOCAL_AGG_DIR=/workspace/gdrive
+      - OUT_DIR=/workspace/public
     ports:
       - "8080:8080"
       - "8086:8086"
