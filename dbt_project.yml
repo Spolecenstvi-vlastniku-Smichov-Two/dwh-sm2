@@ -3,7 +3,7 @@ name: 'dwh_sm2'
 config-version: 2
 version: '0.1'
 
-profile: 'dwh_sm2'
+profile: 'sm2'
 
 model-paths: ["models"]
 seed-paths: ["seeds"]

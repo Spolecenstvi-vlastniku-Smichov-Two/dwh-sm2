@@ -162,6 +162,8 @@ class E2ETestRunner:
             
             if result.returncode == 0:
                 print("    ✅ Data-driven ingest úspěšný")
+            elif "rclone.conf" in result.stderr or "didn't find section in config file" in result.stderr:
+                print("    ⚠️  Data-driven ingest selhal: rclone není nakonfigurován (očekáváno v testu)")
             else:
                 print(f"    ⚠️  Data-driven ingest selhal: {result.stderr.strip()}")
                 if result.stdout.strip():
@@ -242,7 +244,7 @@ class E2ETestRunner:
         print("  1️⃣ Test dbt parse...")
         try:
             result = subprocess.run([
-                "dbt", "parse", "--project-dir", "."
+                "dbt", "parse", "--profiles-dir", "/workspace"
             ], capture_output=True, text=True, timeout=30)
             
             if result.returncode == 0:
@@ -258,7 +260,7 @@ class E2ETestRunner:
         print("  2️⃣ Test dbt seed...")
         try:
             result = subprocess.run([
-                "dbt", "seed", "--project-dir", "."
+                "dbt", "seed", "--profiles-dir", "/workspace"
             ], capture_output=True, text=True, timeout=60)
             
             if result.returncode == 0:
@@ -274,7 +276,7 @@ class E2ETestRunner:
         print("  3️⃣ Test dbt run...")
         try:
             result = subprocess.run([
-                "dbt", "run", "--project-dir", "."
+                "dbt", "run", "--profiles-dir", "/workspace"
             ], capture_output=True, text=True, timeout=120)
             
             if result.returncode == 0:
