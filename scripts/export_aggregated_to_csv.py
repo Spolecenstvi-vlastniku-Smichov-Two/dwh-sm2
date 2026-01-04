@@ -8,7 +8,7 @@ from io import StringIO
 # --- Konfigurace ---
 ORG   = os.getenv("INFLUX_ORG", "ci-org")
 TOKEN = os.getenv("INFLUX_TOKEN", "ci-secret-token")
-HOST  = os.getenv("INFLUX_URL", "http://localhost:8086")  # použijeme --host
+HOST  = os.getenv("INFLUX_URL", "http://influxdb:8086")  # použijeme --host
 BUCKET = "sensor_data"
 EXPORT_DIR = "./gdrive"
 GDRIVE_REMOTE = "sm2drive:Normalized"  # kam pushnout agregované CSV

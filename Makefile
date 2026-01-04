@@ -54,7 +54,7 @@ test-dbt:
 test-influx:
 	@echo "📊 Test InfluxDB pipeline"
 	@echo "Kontroluji InfluxDB službu..."
-	curl -f http://localhost:8086/health
+	curl -f http://influxdb:8086/health || curl -f http://localhost:8086/health
 	@echo "✅ InfluxDB je dostupný"
 	python3 scripts/prepare_annotated_csv.py || true
 	python3 scripts/export_aggregated_to_csv.py || true
