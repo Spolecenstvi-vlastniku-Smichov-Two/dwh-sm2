@@ -1,76 +1,99 @@
+#!/usr/bin/env python3
+"""
+Test prostředí pro devcontainer.
+Kontroluje dostupnost všech potřebných nástrojů a služeb.
+"""
+
 import subprocess
 import sys
+import os
+from pathlib import Path
 
 def check_command(cmd, version_flag='--version'):
-    """Check if command is available and return version info."""
+    """Kontrola dostupnosti příkazu"""
     try:
-        result = subprocess.run(
-            [cmd, version_flag],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=5
-        )
-        version_line = result.stdout.splitlines()[0].strip()
-        return True, version_line
-    except subprocess.TimeoutExpired:
-        return False, f"Timeout executing {cmd}"
-    except subprocess.CalledProcessError as e:
-        return False, f"Command failed with code {e.returncode}"
-    except FileNotFoundError:
-        return False, f"Command not found"
-    except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
+        result = subprocess.run([cmd, version_flag], 
+                              capture_output=True, text=True, timeout=10)
+        return result.returncode == 0
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+def check_service(url, timeout=5):
+    """Kontrola dostupnosti HTTP služby"""
+    try:
+        import urllib.request
+        urllib.request.urlopen(url, timeout=timeout)
+        return True
+    except:
+        return False
+
+def check_file_exists(path):
+    """Kontrola existence souboru"""
+    return Path(path).exists()
 
 def main():
+    """Hlavní funkce pro kontrolu prostředí"""
+    print("🔍 Kontrola devcontainer prostředí...")
+    print("=" * 50)
+    
     checks = [
-        ('python3', '--version'),
-        ('dbt', '--version'),
-        ('rclone', '--version'),
-        ('influx', '--version'),
-        ('duckdb', '--version'),
-        ('git', '--version'),
-        ('jq', '--version'),
-        ('curl', '--version'),
-        ('sqlfluff', '--version'),
-        ('docker', '--version')
+        # Python a základní nástroje
+        ("Python 3", lambda: check_command("python3")),
+        ("pip", lambda: check_command("pip")),
+        ("dbt", lambda: check_command("dbt")),
+        ("rclone", lambda: check_command("rclone")),
+        ("csvkit", lambda: check_command("csvstack")),
+        ("curl", lambda: check_command("curl")),
+        ("git", lambda: check_command("git")),
+        
+        # Docker a databáze
+        ("Docker", lambda: check_command("docker")),
+        ("DuckDB CLI", lambda: check_command("duckdb", "-version")),
+        ("InfluxDB CLI", lambda: check_command("influx", "version")),
+        
+        # Služby
+        ("InfluxDB service", lambda: check_service("http://localhost:8086/health")),
+        ("DuckDB HTTP", lambda: check_service("http://localhost:9000")),
+        
+        # Soubory a adresáře
+        ("Workspace", lambda: check_file_exists("/workspace")),
+        ("Database dir", lambda: check_file_exists("/workspace/db")),
+        ("dbt project", lambda: check_file_exists("/workspace/dbt_project.yml")),
+        ("profiles.yml", lambda: check_file_exists("/workspace/profiles.yml")),
+        
+        # Python balíčky
+        ("pandas", lambda: __import__("pandas") is not None),
+        ("pyarrow", lambda: __import__("pyarrow") is not None),
     ]
     
-    # Additional dbt diagnostics
-    print("\n🔍 Running dbt debug...")
-    dbt_debug = subprocess.run(
-        ['dbt', 'debug'],
-        capture_output=True,
-        text=True
-    )
-    print(dbt_debug.stdout)
-    if dbt_debug.returncode != 0:
-        print(f"❌ dbt debug failed with code {dbt_debug.returncode}")
-        print(dbt_debug.stderr)
+    failed_checks = []
     
-    # Verify Python version
-    python_ok, python_version = check_command('python3', '--version')
-    if python_ok and '3.12.' not in python_version:
-        print(f"⚠️  Wrong Python version: {python_version} (expected 3.12.x)")
-        all_ok = False
+    for name, check_func in checks:
+        try:
+            if check_func():
+                print(f"✅ {name}")
+            else:
+                print(f"❌ {name}")
+                failed_checks.append(name)
+        except Exception as e:
+            print(f"⚠️  {name} - {e}")
+            failed_checks.append(name)
     
-    print("🔍 Testing development environment...")
-    all_ok = True
+    print("=" * 50)
     
-    for cmd, flag in checks:
-        success, output = check_command(cmd, flag)
-        if success:
-            print(f"✅ {cmd}: {output}")
-        else:
-            print(f"❌ {cmd}: {output}")
-            all_ok = False
-    
-    if all_ok:
-        print("\n🎉 All checks passed!")
-        sys.exit(0)
-    else:
-        print("\n⚠️  Some checks failed!")
+    if failed_checks:
+        print(f"❌ Selhalo {len(failed_checks)} kontrol:")
+        for check in failed_checks:
+            print(f"  - {check}")
+        print("\n💡 Tipy pro řešení:")
+        print("  - Restartujte devcontainer")
+        print("  - Zkontrolujte Docker resources")
+        print("  - Spusťte: docker-compose up -d")
         sys.exit(1)
+    else:
+        print("✅ Všechny kontroly prošly úspěšně!")
+        print("🚀 Prostředí je připraveno pro vývoj")
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
