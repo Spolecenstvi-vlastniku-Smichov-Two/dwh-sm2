@@ -9,6 +9,8 @@ services:
     volumes:
       - ..:/workspace
       - ~/.config/rclone:/home/vscode/.config/rclone  # Přidáno pro Rclone konfiguraci
+      - ~/.gitconfig:/home/vscode/.gitconfig
+      - ~/.ssh:/home/vscode/.ssh
     working_dir: /workspace
     tty: true
     stdin_open: true
@@ -20,6 +22,3 @@ services:
     ports:
       - "8086:8086"
       - "8080:8080"  # Pro dbt docs
-    volumes:
-      - ~/.gitconfig:/home/vscode/.gitconfig
-      - ~/.ssh:/home/vscode/.ssh
