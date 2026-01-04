@@ -2,6 +2,7 @@ import pandas as pd
 import csv
 import os
 import json
+import subprocess
 
 mapping_df = pd.read_csv("./seeds/mapping_sources.csv", encoding="utf-8-sig")
 all_data = []
@@ -71,6 +72,27 @@ with open(output_file, encoding="utf-8") as f:
         if not line:
             break
         print(line.strip())
+
+# --- Import dat do InfluxDB ---
+print("\n📥 Importuji data do InfluxDB...")
+try:
+    import_result = subprocess.run([
+        "influx", "write",
+        "--org", os.getenv("INFLUX_ORG", "dev"),
+        "--token", os.getenv("INFLUX_TOKEN", "devtoken"),
+        "--host", os.getenv("INFLUX_URL", "http://influxdb:8086"),
+        "--bucket", "sensor_data",
+        "--file", output_file
+    ], capture_output=True, text=True, timeout=60)
+    
+    if import_result.returncode == 0:
+        print(f"✅ Data úspěšně importována do InfluxDB")
+        print(f"   Řádků: {len(merged_df)}")
+    else:
+        print(f"❌ Import do InfluxDB selhal: {import_result.stderr}")
+        
+except Exception as e:
+    print(f"❌ Chyba při importu do InfluxDB: {e}")
 
 # --- Nově přidáno: zjištění unikátních měsíců ve vstupních datech ---
 merged_df["_time_dt"] = pd.to_datetime(merged_df["_time"])
