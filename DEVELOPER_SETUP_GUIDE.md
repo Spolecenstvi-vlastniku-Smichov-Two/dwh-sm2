@@ -254,18 +254,44 @@ dbt --version
 # Expected: dbt version 1.7.0
 ```
 
-### Troubleshooting
+### Troubleshooting DevContainer Issues
 
 **Issue**: Devcontainer fails to start  
-**Solution**:  
-1. Check Docker Desktop is running
-2. Verify sufficient disk space (needs ~2GB)
-3. Check logs in VSCode output panel
+**Solutions**:  
+1. Verify Docker Desktop is running (`docker ps`)
+2. Check available disk space (min. 2GB free)
+3. Increase Docker memory allocation (Preferences → Resources → Memory)
+4. Check logs:
+   ```bash
+   docker logs dwh-sm2-devcontainer
+   ```
 
 **Issue**: Missing dependencies  
-**Solution**:  
-1. Rebuild container (`Cmd+Shift+P` → "Dev Containers: Rebuild Container")
-2. Check `.devcontainer/Dockerfile` for required packages
+**Solutions**:  
+1. Force rebuild container:
+   ```bash
+   docker-compose -f .devcontainer/docker-compose.yml build --no-cache
+   ```
+2. Manually install missing packages in running container:
+   ```bash
+   docker exec -it dwh-sm2-devcontainer apt-get update && apt-get install -y <missing-package>
+   ```
+
+**Issue**: Permission denied errors  
+**Solutions**:
+1. On macOS/Linux:
+   ```bash
+   chmod -R 755 .devcontainer
+   ```
+2. Reclone repository to fresh directory
+
+**Advanced Debugging**:
+1. Start container manually:
+   ```bash
+   docker-compose -f .devcontainer/docker-compose.yml up -d
+   ```
+2. Attach VSCode to running container:
+   - `Cmd+Shift+P` → "Remote-Containers: Attach to Running Container"
 
 ## VSCode Configuration
 
