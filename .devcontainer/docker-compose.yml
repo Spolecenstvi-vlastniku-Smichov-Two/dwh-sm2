@@ -23,7 +23,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DBT_PROFILES_DIR=/workspace
-      - INFLUX_URL=http://dwh-sm2-influxdb:8086
+      - INFLUX_URL=http://influxdb:8086
       - INFLUX_ORG=dev
       - INFLUX_TOKEN=devtoken
       - INFLUX_BUCKET=sensor_data
@@ -36,12 +36,12 @@ services:
       - "8086:8086"
       - "9000:9000"  # DuckDB HTTP interface
     depends_on:
-      dwh-sm2-influxdb:
+      influxdb:
         condition: service_healthy
 
   influxdb:
     image: influxdb:2.7
-    container_name: dwh-sm2-influxdb
+    container_name: influxdb
     ports:
       - "8086:8086"
     environment:
@@ -59,7 +59,7 @@ services:
 
   duckdb:
     image: duckdb/duckdb:latest
-    container_name: dwh-sm2-duckdb
+    container_name: duckdb
     volumes:
       - ./db:/data
     ports:
