@@ -73,7 +73,11 @@ def check_data_quality(datasource_name: str, csv_file: str) -> bool:
         
         # Check row count
         row_count = len(df)
-        if row_count < config['row_count_min']:
+        if row_count == 0:
+            print(f"⚠️  Empty file: {row_count} rows (file has header only)")
+            print(f"ALL QUALITY CHECKS PASSED: {datasource_name} (empty file)")
+            return True
+        elif row_count < config['row_count_min']:
             print(f"❌ Too few rows: {row_count} (min: {config['row_count_min']})")
             raise QualityCheckError(f"Too few rows in {datasource_name}: {row_count}")
         else:

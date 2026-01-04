@@ -153,21 +153,28 @@ class E2ETestRunner:
         if (self.test_dir / "indoor" / "ThermoProSensor_export_test.csv").exists():
             # Převod na správný formát pro all_sensors_merged.csv
             indoor_df = pd.read_csv(self.test_dir / "indoor" / "ThermoProSensor_export_test.csv")
-            # Převod z narrow na wide formát pro indoor merge
-            indoor_wide = indoor_df.pivot_table(
-                index=['time'], 
-                columns=['data_key'], 
-                values='data_value', 
-                aggfunc='first'
-            ).reset_index()
-            indoor_wide.columns.name = None
-            indoor_wide = indoor_wide.rename(columns={
-                'time': 'Datetime',
-                'temperature': 'Temperature_Celsius',
-                'humidity': 'Relative_Humidity(%)'
-            })
-            indoor_wide['Location'] = 'Living Room'
-            indoor_wide.to_csv(self.gdrive_dir / "all_sensors_merged.csv", index=False)
+            
+            # Kontrola, že máme data
+            if len(indoor_df) > 0:
+                # Převod z narrow na wide formát pro indoor merge
+                indoor_wide = indoor_df.pivot_table(
+                    index=['time'], 
+                    columns=['data_key'], 
+                    values='data_value', 
+                    aggfunc='first'
+                ).reset_index()
+                indoor_wide.columns.name = None
+                indoor_wide = indoor_wide.rename(columns={
+                    'time': 'Datetime',
+                    'temperature': 'Temperature_Celsius',
+                    'humidity': 'Relative_Humidity(%)'
+                })
+                indoor_wide['Location'] = 'Living Room'
+                indoor_wide.to_csv(self.gdrive_dir / "all_sensors_merged.csv", index=False)
+            else:
+                # Vytvoření prázdného souboru s hlavičkou
+                empty_indoor = pd.DataFrame(columns=['Datetime', 'Temperature_Celsius', 'Relative_Humidity(%)', 'Location'])
+                empty_indoor.to_csv(self.gdrive_dir / "all_sensors_merged.csv", index=False)
         
         # Vytvoření dummy souborů pro dbt modely
         self._create_dummy_dbt_files()
