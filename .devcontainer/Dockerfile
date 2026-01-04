@@ -12,11 +12,11 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Influx CLI for ARM
-RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-linux-arm64.tar.gz -o influx-cli.tar.gz \
+# Install Influx CLI
+RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/').tar.gz -o influx-cli.tar.gz \
     && tar -xzf influx-cli.tar.gz \
-    && mv influxdb2-client-2.7.5-linux-arm64/influx /usr/local/bin/ \
-    && rm -rf influx-cli.tar.gz influxdb2-client-2.7.5-linux-arm64
+    && mv influxdb2-client-2.7.5-*/influx /usr/local/bin/ \
+    && rm -rf influx-cli.tar.gz influxdb2-client-2.7.5-*
 
 # Install Python dependencies
 COPY requirements.txt /tmp/pip-tmp/

@@ -137,8 +137,8 @@ pip install pandas==1.5.3
 pip install pyarrow==13.0.0
 
 # dbt (for transformations)
-pip install dbt-core==1.7.0
-pip install dbt-duckdb==1.7.0
+pip install dbt-core>=1.8.0
+pip install dbt-duckdb>=1.8.0
 
 # Optional: SQL/formatting tools
 pip install sqlfluff==2.3.0
