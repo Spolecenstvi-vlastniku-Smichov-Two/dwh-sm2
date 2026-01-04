@@ -12,6 +12,7 @@ services:
       - ~/.gitconfig:/home/vscode/.gitconfig
       - ~/.ssh:/home/vscode/.ssh
       - ./db:/workspace/db
+      - ./test_data:/workspace/test_data
     working_dir: /workspace
     tty: true
     stdin_open: true

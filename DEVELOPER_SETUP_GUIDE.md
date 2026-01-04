@@ -252,7 +252,15 @@ For most developers, we recommend using the pre-configured DevContainer which in
 ### First-Time Setup:
 After container starts, run initialization:
 ```bash
+# Set execute permissions
+sudo chmod +x /tmp/influx-setup.sh
+
+# Run initialization
 /tmp/influx-setup.sh
+
+# Verify setup
+curl http://localhost:8086/health
+# Should return: ready
 ```
 
 ### Test Environment:
