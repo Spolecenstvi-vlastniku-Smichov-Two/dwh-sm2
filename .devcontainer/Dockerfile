@@ -41,21 +41,17 @@ RUN mkdir -p /home/vscode/.dbt && \
 # Create workspace directories
 RUN mkdir -p /workspace/{db,test_data,gdrive} && chown vscode:vscode /workspace
 
-# Create workspace and seed test data
+# Create workspace and empty test data directory
 RUN mkdir -p /workspace/test_data && chown vscode:vscode /workspace
 WORKDIR /workspace
-
-# Seed test data
-COPY ./seeds/test_data/ /workspace/test_data/
-RUN chown -R vscode:vscode /workspace/test_data
 
 USER vscode
 
 # Initialize influx config on first run
-COPY influx-setup.sh /tmp/influx-setup.sh
-RUN chmod +x /tmp/influx-setup.sh && \
-    mkdir -p /home/vscode/.influxdbv2 && \
-    chown -R vscode:vscode /home/vscode/.influxdbv2
+RUN mkdir -p /home/vscode/.influxdbv2 && \
+    chown -R vscode:vscode /home/vscode/.influxdbv2 && \
+    echo -e '#!/bin/bash\ninflux setup --username dev --password devpassword --org dev --bucket sensor_data --token devtoken --force' > /tmp/influx-setup.sh && \
+    chmod +x /tmp/influx-setup.sh
 
 # Initialize DuckDB
 RUN mkdir -p /workspace/db && touch /workspace/db/sm2.duckdb
