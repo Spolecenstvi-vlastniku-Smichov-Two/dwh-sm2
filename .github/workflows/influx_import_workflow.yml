@@ -51,10 +51,10 @@ jobs:
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
-      - name: Install Python dependencies
-        run: pip install pandas
+      - name: Install dependencies from requirements.txt
+        run: pip install -r requirements.txt
 
-      - name: Install Influx CLI 2.7.5 (ARM64)
+      - name: Install Influx CLI
         run: |
           curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-amd64.deb -o influx-cli.deb
           sudo dpkg -i influx-cli.deb
@@ -100,7 +100,7 @@ jobs:
           rm -f ./gdrive/Influx/additive_*.annotated.csv
           rm -f ./gdrive/Influx/nonadditive_*.annotated.csv
 
-      - name: Import annotated CSV into InfluxDB with debug
+      - name: Import annotated CSV into InfluxDB
         run: |
           influx write \
             --bucket sensor_data \
@@ -109,14 +109,8 @@ jobs:
             --format csv \
             --file nonadditive_combined.annotated.csv \
             --host "$INFLUX_URL" \
-            --debug \
             --skipRowOnError
 
-      - name: Verify bucket contents after write
-        run: |
-          influx bucket list --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --host "$INFLUX_URL"
-          influx query --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --host "$INFLUX_URL" 'from(bucket:"sensor_data") |> range(start: -1y) |> limit(n:5)'
-    
       - name: Debug raw Influx data
         run: python3 ./scripts/debug_influx_raw.py
 

@@ -42,18 +42,15 @@ jobs:
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
+      - name: Install dependencies from requirements.txt
+        run: |
+          pip install -r requirements.txt
+          dbt deps
+
       - run: rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
-
       - run: rclone copy sm2drive:Indoor/Model/ ./gdrive/
-
-      - run: ls -l ./gdrive/
-
       - run: rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
-
       - run: rclone copy sm2drive:Indoor/Latest/Upload ./latest/
-
-      - name: Install csvkit
-        run: pip install --upgrade csvkit
 
       - name: Merge valid Ventilation data
         run: |
@@ -70,7 +67,6 @@ jobs:
             done
             Files=${Files::-1}
             csvjoin --locale cs_CZ -c Date --outer ${Files} > ./gdrive/merged.csv
-            echo "extdate=${date//[\ \:\-\;><\@\$\#\&\(\)\?\\\/\%]/_}" >> $GITHUB_ENV
           else
             echo "Date,KOT1/Teplota venkovní (°C)" >  ./gdrive/merged.csv
           fi
@@ -80,24 +76,11 @@ jobs:
 
       - name: Merge valid Indoor data
         run: ./scripts/indoor_merge_all_sensors.sh
-          
-      - run: ls -l ./gdrive/
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade dbt-duckdb
-          pip install --upgrade duckdb
-          dbt deps
 
       - name: Lint with sqlfluff
         run: |
-          pip install sqlfluff
           sqlfluff fix --dialect duckdb -v models/
           sqlfluff lint --dialect duckdb -v models/
-    
-          # Linting only modified models
-          # git fetch origin main:main
-          # git diff main --name-only --diff-filter=d | egrep '^models/.*sql$$' | xargs -r sqlfluff lint
 
       - name: Run dbt source freshness
         run: dbt source freshness
@@ -117,57 +100,38 @@ jobs:
       - name: Run docs generate
         run: dbt docs generate
 
-      - name: Generate dbt docs
+      - name: Generate dbt docs artifacts
         run: |
-          mkdir -p ${{ github.workspace }}/docs && cp ${{ github.workspace }}/target/*.json ${{ github.workspace }}/docs
-          cp ${{ github.workspace }}/target/*.html ${{ github.workspace }}/docs
-          cp ${{ github.workspace }}/target/*.gpickle ${{ github.workspace }}/docs
+          mkdir -p ${{ github.workspace }}/docs
+          cp ${{ github.workspace }}/target/*.json ${{ github.workspace }}/docs/
+          cp ${{ github.workspace }}/target/*.html ${{ github.workspace }}/docs/
+          cp ${{ github.workspace }}/target/*.gpickle ${{ github.workspace }}/docs/
 
-      - run: |
-          if [[ -f "./fact.csv" ]]; then
-              rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/
-          else
-              echo "fact.csv not found, skipping upload"
-          fi
-          if [[ -f "./fact_indoor_temperature.csv" ]]; then
-              rclone copy ./fact_indoor_temperature.csv sm2drive:Indoor/Model/
-          else
-              echo "fact_indoor_temperature.csv not found, skipping upload"
-          fi
-          if [[ -f "./fact_indoor_humidity.csv" ]]; then
-              rclone copy ./fact_indoor_humidity.csv sm2drive:Indoor/Model/
-          else
-              echo "fact_indoor_humidity.csv not found, skipping upload"
-          fi
+      - name: Upload Fact Tables to GDrive
+        run: |
+          [ -f "./fact.csv" ] && rclone copy ./fact.csv sm2drive:Vzduchotechnika/Model/ || echo "fact.csv not found"
+          [ -f "./fact_indoor_temperature.csv" ] && rclone copy ./fact_indoor_temperature.csv sm2drive:Indoor/Model/ || echo "fact_indoor_temperature.csv not found"
+          [ -f "./fact_indoor_humidity.csv" ] && rclone copy ./fact_indoor_humidity.csv sm2drive:Indoor/Model/ || echo "fact_indoor_humidity.csv not found"
 
-      - run: ls -l ${{ github.workspace }}/docs
-
-      - run: git status
-
-      - name: Commit files
+      - name: Commit and Push changes
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add --all :/
-          git commit -m "Add docs"
+          git commit -m "docs: aktualizace dbt dokumentace a artefaktů [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "Push failed"
         continue-on-error: true
 
-      - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref }}
-        continue-on-error: true
-
-      - run: |
+      - name: Archive processed files
+        run: |
           TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
           if find ./latest -maxdepth 1 -type f -name 'Graph*' | grep -q .; then
-            echo "📂 Soubory ThermoProSensor_export_* nalezeny, provádím archivaci Vzduchotechnika/Latest/Upload"
+            echo "📂 Soubory Graph* nalezeny, archivuji Vzduchotechnika/Latest/Upload"
             rclone copyto sm2drive:Vzduchotechnika/Latest/Upload sm2drive:Vzduchotechnika/Archiv/${TIMESTAMP}/
             rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
           fi
           if find ./latest -maxdepth 1 -type f -name 'ThermoProSensor_export_*' | grep -q .; then
-            echo "📂 Soubory Graph* nalezeny, provádím archivaci Indoor/Latest/Upload"
+            echo "📂 Soubory ThermoProSensor_export_* nalezeny, archivuji Indoor/Latest/Upload"
             rclone copyto sm2drive:Indoor/Latest/Upload sm2drive:Indoor/Archiv/${TIMESTAMP}/
             rclone purge sm2drive:Indoor/Latest/Upload && rclone mkdir sm2drive:Indoor/Latest/Upload
           fi
