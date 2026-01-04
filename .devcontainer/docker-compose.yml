@@ -6,7 +6,7 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ..:/workspace
-      - ~/.config/rclone:/home/vscode/.config/rclone  # Přidáno pro Rclone konfiguraci
+      - ~/.config/rclone:/home/vscode/.config/rclone
       - ~/.gitconfig:/home/vscode/.gitconfig
       - ~/.ssh:/home/vscode/.ssh
     working_dir: /workspace
@@ -14,8 +14,26 @@ services:
     stdin_open: true
     environment:
       - PYTHONUNBUFFERED=1
-      - DBT_PROFILES_DIR=/workspace
+      - DBT_PROFILES_DIR=/workspace 
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_ORG=dev
+      - INFLUX_TOKEN=devtoken
+      - INFLUX_BUCKET=sensor_data
     ports:
-      - "8080:8080"  # Pro dbt docs
-    # Zjednodušené pro testování
-    # Odstraňte InfluxDB závislost pro první test
+      - "8080:8080"
+      - "8086:8086"
+    depends_on:
+      - influxdb
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=dev
+      - DOCKER_INFLUXDB_INIT_PASSWORD=devpassword
+      - DOCKER_INFLUXDB_INIT_ORG=dev
+      - DOCKER_INFLUXDB_INIT_BUCKET=sensor_data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=devtoken

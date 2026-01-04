@@ -227,9 +227,44 @@ git --version
 
 ---
 
-## DevContainer Setup
+## Preferred Development Setup (DevContainer)
 
-Visual Studio Code supports development containers (devcontainers) for consistent development environments.
+For most developers, we recommend using the pre-configured DevContainer which includes:
+
+1. Python 3.12 with all dependencies
+2. Local InfluxDB instance with test data
+3. Pre-configured Rclone for Google Drive access
+4. dbt and DuckDB setup
+
+### Quick Start:
+
+1. Install Docker Desktop
+2. Install VSCode with Dev Containers extension
+3. Clone repository:
+   ```bash
+   git clone https://github.com/Spolecenstvi-vlastniku-Smichov-Two/dwh-sm2.git
+   ```
+4. Open in VSCode and run:
+   ```bash
+   Cmd+Shift+P → "Dev Containers: Reopen in Container"
+   ```
+
+### First-Time Setup:
+After container starts, run initialization:
+```bash
+/tmp/influx-setup.sh
+```
+
+### Test Environment:
+```bash
+# Verify InfluxDB
+curl http://localhost:8086/health
+# Should return: ready
+
+# Verify Python
+python3 scripts/test_environment.py
+# Should show all checks OK
+```
 
 ### Prerequisites
 

@@ -26,11 +26,16 @@ RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requ
 # Install development tools
 RUN pip3 install black pylint mypy pytest pytest-cov
 
-# Create workspace and set permissions
-RUN mkdir -p /workspace && chown vscode:vscode /workspace
-
-# Set up workspace
-RUN mkdir -p /workspace
+# Create workspace and seed test data
+RUN mkdir -p /workspace/test_data && chown vscode:vscode /workspace
 WORKDIR /workspace
 
+# Seed test data
+COPY ./seeds/test_data/ /workspace/test_data/
+RUN chown -R vscode:vscode /workspace/test_data
+
 USER vscode
+
+# Initialize influx config on first run
+COPY .devcontainer/influx-setup.sh /tmp/influx-setup.sh
+RUN sudo chmod +x /tmp/influx-setup.sh
