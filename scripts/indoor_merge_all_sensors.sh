@@ -156,6 +156,13 @@ for file in "${files[@]}"; do
   location="$(basename "$file" | awk -F'_' '{print $3}')"
   echo "   Location: $location"
  
+  # Kontrola, zda soubor obsahuje nějaká data
+  lines=$(awk 'NR>2{c++} END{print c+0}' "$file")
+  if [ "$lines" -eq 0 ]; then
+    echo "⚠️  Přeskakuji prázdný soubor: $file"
+    continue
+  fi
+
   print_input_samples "$file"
  
   if [ -n "$FORCE_FMT" ]; then
