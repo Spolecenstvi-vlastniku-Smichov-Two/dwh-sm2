@@ -1,0 +1,3 @@
+datasource_id,name,source_type,location,file_pattern,required_columns,data_type,retention_months,status,description
+1,ventilation,csv,sm2drive:Vzduchotechnika/Latest/Upload,Graph*.csv,"date,KOT1/Teplota venkovní,KOT1/Vlhkost venkovní",temperature;humidity,2,active,Ventilation system data from Atrea
+2,indoor,csv,sm2drive:Indoor/Latest/Upload,ThermoProSensor_export*.csv,"time,location,measurement,data_key,data_value",temperature;humidity,2,active,Indoor climate sensors from ThermoPro

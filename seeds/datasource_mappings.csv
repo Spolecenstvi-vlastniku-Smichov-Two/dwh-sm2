@@ -1,0 +1,3 @@
+datasource_id,timestamp_column,location_column,measurement_column,value_column,unit_column,notes
+1,date,,,,,Ventilation data uses wide format
+2,time,location,measurement,data_value,,Indoor data uses narrow format

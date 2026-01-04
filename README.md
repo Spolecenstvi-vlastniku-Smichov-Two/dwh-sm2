@@ -181,10 +181,17 @@ Create the final public dataset with metadata and license.
 
 ### Local Development
 1. Clone the repository.
-2. Run `bash setup_dev.sh` to initialize the environment.
+2. Follow [DEVELOPER_SETUP_GUIDE.md](DEVELOPER_SETUP_GUIDE.md) for complete setup.
 3. Configure `profiles.yml` (DuckDB path: `dwh_sm2.duckdb`).
 4. Use `rclone` to sync source data to `./gdrive/`.
 5. Run `dbt build`.
+
+### Phase 1 Implementation
+This repository includes **Phase 1: Schema Validation + Data-Driven Ingest** improvements:
+- Explicit format change detection via `scripts/validate_schema.py`
+- Pre-InfluxDB quality checks via `scripts/quality_checks.py`
+- Data-driven datasource configuration via `seeds/datasources_config.csv`
+- See [PHASE_1_IMPLEMENTATION.md](PHASE_1_IMPLEMENTATION.md) for details.
 
 ---
 
