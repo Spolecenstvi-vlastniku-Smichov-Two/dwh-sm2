@@ -20,10 +20,10 @@ RUN curl -LO https://github.com/duckdb/duckdb/releases/download/v0.9.2/duckdb_cl
     rm duckdb_cli-linux-aarch64.zip
 
 # Install Influx CLI
-RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.6-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/').tar.gz -o influx-cli.tar.gz \
+RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.7-linux-arm64.tar.gz -o influx-cli.tar.gz \
     && tar -xzf influx-cli.tar.gz \
-    && mv influxdb2-client-2.7.6-*/influx /usr/local/bin/ \
-    && rm -rf influx-cli.tar.gz influxdb2-client-2.7.6-* \
+    && mv influxdb2-client-2.7.7-linux-arm64/influx /usr/local/bin/ \
+    && rm -rf influx-cli.tar.gz influxdb2-client-2.7.7-linux-arm64 \
     && influx version
 
 # Install Python dependencies with hash checking
