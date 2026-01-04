@@ -16,6 +16,11 @@ services:
     working_dir: /workspace
     tty: true
     stdin_open: true
+    healthcheck:
+      test: ["CMD", "python3", ".devcontainer/test_environment.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     environment:
       - PYTHONUNBUFFERED=1
       - DBT_PROFILES_DIR=/workspace

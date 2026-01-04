@@ -16,7 +16,11 @@ def main():
         ('dbt', '--version'),
         ('rclone', '--version'),
         ('influx', '--version'),
-        ('duckdb', '--version')
+        ('duckdb', '--version'),
+        ('git', '--version'),
+        ('jq', '--version'),
+        ('curl', '--version'),
+        ('sqlfluff', '--version')
     ]
     
     print("🔍 Testing development environment...")

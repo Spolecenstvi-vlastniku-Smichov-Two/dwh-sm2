@@ -42,8 +42,10 @@ RUN chown -R vscode:vscode /workspace/test_data
 USER vscode
 
 # Initialize influx config on first run
-COPY .devcontainer/influx-setup.sh /tmp/influx-setup.sh
-RUN sudo chmod +x /tmp/influx-setup.sh
+COPY influx-setup.sh /tmp/influx-setup.sh
+RUN chmod +x /tmp/influx-setup.sh && \
+    mkdir -p /home/vscode/.influxdbv2 && \
+    chown -R vscode:vscode /home/vscode/.influxdbv2
 
 # Initialize DuckDB
 RUN mkdir -p /workspace/db && touch /workspace/db/sm2.duckdb
