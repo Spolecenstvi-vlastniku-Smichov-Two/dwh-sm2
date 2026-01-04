@@ -20,10 +20,10 @@ RUN curl -LO https://github.com/duckdb/duckdb/releases/download/v0.9.2/duckdb_cl
     rm duckdb_cli-linux-aarch64.zip
 
 # Install InfluxDB CLI from GitHub releases
-RUN curl -LO https://github.com/influxdata/influx-cli/releases/download/v2.7.7/influx2-client-2.7.7-linux-arm64.tar.gz \
-    && tar xzf influx2-client-2.7.7-linux-arm64.tar.gz \
+RUN curl -LO https://github.com/influxdata/influx-cli/releases/download/v2.7.5/influxdb2-client-2.7.5-linux-arm64.tar.gz \
+    && tar xzf influxdb2-client-2.7.5-linux-arm64.tar.gz \
     && mv influx /usr/local/bin/ \
-    && rm influx2-client-2.7.7-linux-arm64.tar.gz \
+    && rm influxdb2-client-2.7.5-linux-arm64.tar.gz \
     && influx version
 
 # Install Python dependencies with hash checking
@@ -54,12 +54,9 @@ WORKDIR /workspace
 
 USER vscode
 
-# Initialize influx config on first run
+# Initialize influx config directory
 RUN mkdir -p /home/vscode/.influxdbv2 && \
-    chown -R vscode:vscode /home/vscode/.influxdbv2 && \
-    echo -e '#!/bin/bash\ninflux setup --username dev --password devpassword --org dev --bucket sensor_data --token devtoken --force' > /tmp/influx-setup.sh && \
-    chmod +x /tmp/influx-setup.sh && \
-    /tmp/influx-setup.sh
+    chown -R vscode:vscode /home/vscode/.influxdbv2
 
 # Initialize DuckDB
 RUN mkdir -p /workspace/db && touch /workspace/db/sm2.duckdb
