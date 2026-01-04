@@ -11,6 +11,7 @@ services:
       - ~/.config/rclone:/home/vscode/.config/rclone
       - ~/.gitconfig:/home/vscode/.gitconfig
       - ~/.ssh:/home/vscode/.ssh
+      - ./db:/workspace/db
     working_dir: /workspace
     tty: true
     stdin_open: true
@@ -21,9 +22,11 @@ services:
       - INFLUX_ORG=dev
       - INFLUX_TOKEN=devtoken
       - INFLUX_BUCKET=sensor_data
+      - DUCKDB_DATABASE=/workspace/db/sm2.duckdb
     ports:
       - "8080:8080"
       - "8086:8086"
+      - "9000:9000"  # DuckDB HTTP interface
     depends_on:
       influxdb:
         condition: service_healthy
@@ -45,3 +48,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
+  duckdb:
+    image: duckdb/duckdb:latest
+    container_name: duckdb
+    volumes:
+      - ./db:/data
+    ports:
+      - "9000:9000"
+    command: ["-http", "-listen", "0.0.0.0:9000"]

@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libffi-dev \
     python3-dev \
+    duckdb \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Influx CLI
@@ -24,7 +25,7 @@ RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requ
     && rm -rf /tmp/pip-tmp
 
 # Install development tools
-RUN pip3 install black pylint mypy pytest pytest-cov
+RUN pip3 install black pylint mypy pytest pytest-cov dbt-duckdb
 
 # Create workspace and seed test data
 RUN mkdir -p /workspace/test_data && chown vscode:vscode /workspace
@@ -39,3 +40,6 @@ USER vscode
 # Initialize influx config on first run
 COPY .devcontainer/influx-setup.sh /tmp/influx-setup.sh
 RUN sudo chmod +x /tmp/influx-setup.sh
+
+# Initialize DuckDB
+RUN mkdir -p /workspace/db && touch /workspace/db/sm2.duckdb
