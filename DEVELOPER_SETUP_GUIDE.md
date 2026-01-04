@@ -71,9 +71,9 @@ brew --version
 # If not installed:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Check Python (should be 3.9+)
+# Check Python (should be 3.12+)
 python3 --version
-# Expected: Python 3.9.6 or later
+# Expected: Python 3.12.x
 
 # Check zsh (default shell on modern macOS)
 echo $SHELL
