@@ -36,7 +36,13 @@ test-quick:
 
 test-full:
 	@echo "🚀 Spouštím kompletní E2E test..."
-	bash scripts/test_e2e_full.sh
+	@echo "🔍 Kontrola závislostí..."
+	@which python3 > /dev/null || (echo "❌ Chybí: python3" && exit 1)
+	@which dbt > /dev/null || (echo "❌ Chybí: dbt" && exit 1)
+	@which rclone > /dev/null || (echo "❌ Chybí: rclone" && exit 1)
+	@echo "✅ Základní závislosti dostupné"
+	@echo "⚠️  Spouštím test s externí InfluxDB službou"
+	python3 scripts/test_e2e_pipeline.py --with-real-data
 
 test-phase1:
 	@echo "🔍 Test Phase 1: Schema validation + Data-driven ingest"

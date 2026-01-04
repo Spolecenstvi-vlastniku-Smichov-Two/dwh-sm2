@@ -550,9 +550,9 @@ def main():
     args = parser.parse_args()
     
     # Kontrola závislostí
-    required_commands = ["python3", "dbt", "csvstack"]
+    required_commands = ["python3", "dbt"]
     if not args.skip_influx:
-        required_commands.extend(["docker", "curl"])
+        required_commands.append("curl")
     if args.with_real_data:
         required_commands.append("rclone")
     
@@ -566,6 +566,14 @@ def main():
     if missing_commands:
         print(f"❌ Chybějící závislosti: {', '.join(missing_commands)}")
         print("Nainstalujte je před spuštěním testu.")
+        sys.exit(1)
+    
+    # Kontrola pandas v devcontainer prostředí
+    try:
+        import pandas
+        print("✅ pandas dostupný")
+    except ImportError:
+        print("❌ pandas není dostupný - nainstalujte: pip install pandas")
         sys.exit(1)
     
     # Spuštění testu

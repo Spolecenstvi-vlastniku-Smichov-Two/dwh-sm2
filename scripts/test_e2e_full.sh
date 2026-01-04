@@ -8,18 +8,15 @@ echo "==================================="
 
 # Kontrola závislostí
 echo "🔍 Kontrola závislostí..."
-for cmd in python3 dbt csvstack docker curl rclone; do
+for cmd in python3 dbt rclone; do
     if ! command -v $cmd &> /dev/null; then
         echo "❌ Chybí: $cmd"
         exit 1
     fi
 done
 
-# Kontrola Docker daemon
-if ! docker info &> /dev/null; then
-    echo "❌ Docker daemon není spuštěn"
-    exit 1
-fi
+# V devcontaineru Docker není dostupný - používáme externí InfluxDB
+echo "⚠️  Docker není dostupný v devcontaineru - používám externí InfluxDB"
 
 # Kontrola rclone konfigurace
 if ! rclone lsd sm2drive: &> /dev/null; then
