@@ -40,7 +40,7 @@ RUN pip3 install --no-cache-dir black pylint mypy pytest pytest-cov influxdb-cli
 
 # Set up dbt profile
 RUN mkdir -p /home/vscode/.dbt && \
-    echo "sm2:\n  target: dev\n  outputs:\n    dev:\n      type: duckdb\n      path: /workspace/db/sm2.duckdb" > /home/vpcodes/.dbt/profiles.yml && \
+    echo "sm2:\n  target: dev\n  outputs:\n    dev:\n      type: duckdb\n      path: /workspace/db/sm2.duckdb\n      threads: 24" > /home/vscode/.dbt/profiles.yml && \
     chown -R vscode:vscode /home/vscode/.dbt
 
 # Create workspace directories
