@@ -1,7 +1,8 @@
 FROM mcr.microsoft.com/devcontainers/python:3.12
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies with error handling
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     curl \
     rclone \
     jq \
@@ -11,7 +12,8 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     python3-dev \
     duckdb \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Influx CLI
 RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/').tar.gz -o influx-cli.tar.gz \
@@ -19,10 +21,10 @@ RUN curl -fsSL https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.
     && mv influxdb2-client-2.7.5-*/influx /usr/local/bin/ \
     && rm -rf influx-cli.tar.gz influxdb2-client-2.7.5-*
 
-# Install Python dependencies
+# Install Python dependencies with hash checking
 COPY requirements.txt /tmp/pip-tmp/
-RUN pip3 --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements.txt \
-    && rm -rf /tmp/pip-tmp
+RUN pip3 install --no-cache-dir --require-hashes -r /tmp/pip-tmp/requirements.txt && \
+    rm -rf /tmp/pip-tmp
 
 # Install development tools
 RUN pip3 install black pylint mypy pytest pytest-cov dbt-duckdb influxdb-client python-dotenv \

@@ -17,10 +17,11 @@ services:
     tty: true
     stdin_open: true
     healthcheck:
-      test: ["CMD", "python3", ".devcontainer/test_environment.py"]
+      test: ["CMD", "python3", "-c", "import sys; from test_environment import main; sys.exit(0 if main() == 0 else 1)"]
       interval: 30s
-      timeout: 10s
-      retries: 3
+      timeout: 15s
+      retries: 5
+      start_period: 30s
     environment:
       - PYTHONUNBUFFERED=1
       - DBT_PROFILES_DIR=/workspace

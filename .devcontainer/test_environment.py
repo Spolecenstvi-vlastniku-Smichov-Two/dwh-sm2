@@ -2,13 +2,25 @@ import subprocess
 import sys
 
 def check_command(cmd, version_flag='--version'):
+    """Check if command is available and return version info."""
     try:
-        result = subprocess.run([cmd, version_flag], 
-                              capture_output=True, 
-                              text=True)
-        return True, result.stdout.splitlines()[0]
+        result = subprocess.run(
+            [cmd, version_flag],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5
+        )
+        version_line = result.stdout.splitlines()[0].strip()
+        return True, version_line
+    except subprocess.TimeoutExpired:
+        return False, f"Timeout executing {cmd}"
+    except subprocess.CalledProcessError as e:
+        return False, f"Command failed with code {e.returncode}"
+    except FileNotFoundError:
+        return False, f"Command not found"
     except Exception as e:
-        return False, str(e)
+        return False, f"Unexpected error: {str(e)}"
 
 def main():
     checks = [
