@@ -258,7 +258,17 @@ dbt --version
 
 **Issue**: Devcontainer fails to start  
 **Solutions**:  
-1. Verify Docker Desktop is running (`docker ps`)
+1. Verify Docker Desktop is running:
+   ```bash
+   docker ps
+   # Expected: List of containers or empty list
+   # If error: Start Docker Desktop app
+   ```
+   
+2. Check Docker resources (macOS):
+   - Open Docker Desktop → Preferences → Resources
+   - Minimum: 4 CPU cores, 8GB RAM, 2GB Swap
+   - Disk image location: Must have 10GB+ free space
 2. Check available disk space (min. 2GB free)
 3. Increase Docker memory allocation (Preferences → Resources → Memory)
 4. Check logs:
