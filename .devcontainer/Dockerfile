@@ -30,8 +30,8 @@ RUN pip3 install --no-cache-dir --require-hashes -r /tmp/pip-tmp/requirements.tx
 RUN pip3 install dbt-core==1.8.0 dbt-duckdb==1.8.0
 
 # Install other development tools
-RUN pip3 install black pylint mypy pytest pytest-cov influxdb-client python-dotenv \
-    pandas pyarrow sqlfluff csvkit
+RUN pip3 install --no-cache-dir black pylint mypy pytest pytest-cov influxdb-client python-dotenv \
+    pandas pyarrow sqlfluff csvkit duckdb
 
 # Set up dbt profile
 RUN mkdir -p /home/vscode/.dbt && \
@@ -39,7 +39,9 @@ RUN mkdir -p /home/vscode/.dbt && \
     chown -R vscode:vscode /home/vscode/.dbt
 
 # Create workspace directories
-RUN mkdir -p /workspace/{db,test_data,gdrive} && chown vscode:vscode /workspace
+RUN mkdir -p /workspace/{db,test_data,gdrive} && \
+    chown -R vscode:vscode /workspace && \
+    chmod -R 775 /workspace
 
 # Create workspace and empty test data directory
 RUN mkdir -p /workspace/test_data && chown vscode:vscode /workspace
@@ -51,7 +53,8 @@ USER vscode
 RUN mkdir -p /home/vscode/.influxdbv2 && \
     chown -R vscode:vscode /home/vscode/.influxdbv2 && \
     echo -e '#!/bin/bash\ninflux setup --username dev --password devpassword --org dev --bucket sensor_data --token devtoken --force' > /tmp/influx-setup.sh && \
-    chmod +x /tmp/influx-setup.sh
+    chmod +x /tmp/influx-setup.sh && \
+    /tmp/influx-setup.sh
 
 # Initialize DuckDB
 RUN mkdir -p /workspace/db && touch /workspace/db/sm2.duckdb
