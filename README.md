@@ -186,12 +186,19 @@ Create the final public dataset with metadata and license.
 4. Use `rclone` to sync source data to `./gdrive/`.
 5. Run `dbt build`.
 
-### Phase 1 Implementation
+### Phase 1 Implementation ✅ COMPLETE
 This repository includes **Phase 1: Schema Validation + Data-Driven Ingest** improvements:
-- Explicit format change detection via `scripts/validate_schema.py`
-- Pre-InfluxDB quality checks via `scripts/quality_checks.py`
-- Data-driven datasource configuration via `seeds/datasources_config.csv`
+- ✅ Explicit format change detection via `scripts/validate_schema.py`
+- ✅ Pre-InfluxDB quality checks via `scripts/quality_checks.py`
+- ✅ Data-driven datasource configuration via `seeds/datasources_config.csv`
+- ✅ Comprehensive E2E testing framework (`make test-quick`, `make test-full`)
 - See [PHASE_1_IMPLEMENTATION.md](PHASE_1_IMPLEMENTATION.md) for details.
+
+### Testing & Development
+- **Quick test**: `make test-quick` - syntetická data, bez InfluxDB
+- **Full test**: `make test-full` - reálná data z Google Drive
+- **DevContainer**: Kompletní vývojové prostředí s InfluxDB + DuckDB
+- **Individual tests**: `make test-phase1`, `make test-dbt`, `make test-influx`
 
 ---
 
