@@ -25,13 +25,17 @@ params as (
 
 final as (
     select
-        time,
+        cast(time as timestamp) as time,
         location,
         data_key,
-        data_value
+        cast(data_value as double) as data_value
     from mapped
     union distinct
-    select *
+    select 
+        cast(time as timestamp) as time,
+        location,
+        data_key,
+        cast(data_value as double) as data_value
     from {{ source('csv_google_indoor','fact_indoor_humidity_original') }}
 )
 

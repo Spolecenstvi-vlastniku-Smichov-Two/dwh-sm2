@@ -36,10 +36,15 @@ final as (
         cast(time as timestamp) as time, --noqa
         location,
         data_key,
-        data_value
+        cast(data_value as double) as data_value
     from mapped
     union distinct
-    select * from {{ source('csv_google','fact_original') }}
+    select 
+        cast(time as timestamp) as time,
+        location,
+        data_key,
+        cast(data_value as double) as data_value
+    from {{ source('csv_google','fact_original') }}
 )
 
 select *

@@ -147,11 +147,14 @@ class E2ETestRunner:
         if (self.test_dir / "indoor").exists():
             shutil.copytree(self.test_dir / "indoor", self.gdrive_dir / "indoor", dirs_exist_ok=True)
         
-        # Vytvoření dummy fact souborů pro validaci
+        # Vytvoření dummy fact souborů pro validaci a dbt
         if (self.test_dir / "ventilation" / "Graph_test_data.csv").exists():
             shutil.copy(self.test_dir / "ventilation" / "Graph_test_data.csv", self.gdrive_dir / "fact.csv")
         if (self.test_dir / "indoor" / "ThermoProSensor_export_test.csv").exists():
             shutil.copy(self.test_dir / "indoor" / "ThermoProSensor_export_test.csv", self.gdrive_dir / "all_sensors_merged.csv")
+        
+        # Vytvoření dummy souborů pro dbt modely
+        self._create_dummy_dbt_files()
         
         # Test 1: Data-driven ingest
         print("  1️⃣ Test data-driven ingest...")
@@ -405,6 +408,28 @@ class E2ETestRunner:
         except Exception as e:
             print(f"    ⚠️  Chyba při public dataset build: {e}")
     
+    def _create_dummy_dbt_files(self):
+        """Vytvoření dummy souborů pro dbt modely"""
+        # Dummy indoor temperature data
+        indoor_temp_data = {
+            'time': pd.date_range(datetime.now() - timedelta(days=7), periods=7*24, freq='h'),
+            'location': ['Living Room'] * (7*24),
+            'data_key': ['temperature'] * (7*24),
+            'data_value': [20 + np.random.normal(0, 2) for _ in range(7*24)]
+        }
+        indoor_temp_df = pd.DataFrame(indoor_temp_data)
+        indoor_temp_df.to_csv(self.gdrive_dir / "fact_indoor_temperature.csv", index=False)
+        
+        # Dummy indoor humidity data
+        indoor_hum_data = {
+            'time': pd.date_range(datetime.now() - timedelta(days=7), periods=7*24, freq='h'),
+            'location': ['Living Room'] * (7*24),
+            'data_key': ['humidity'] * (7*24),
+            'data_value': [45 + np.random.normal(0, 5) for _ in range(7*24)]
+        }
+        indoor_hum_df = pd.DataFrame(indoor_hum_data)
+        indoor_hum_df.to_csv(self.gdrive_dir / "fact_indoor_humidity.csv", index=False)
+
     def _create_dummy_aggregated_files(self):
         """Vytvoření dummy agregovaných souborů pro test"""
         current_month = datetime.now().strftime("%Y-%m")

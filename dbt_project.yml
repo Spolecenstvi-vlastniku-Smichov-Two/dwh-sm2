@@ -24,14 +24,14 @@ models:
       +format: csv
 
       fact:
-        +location: "./fact.csv"
+        +location: "./gdrive/fact.csv"
 
     indoor:
       +materialized: external
       +format: csv
 
-      fact_indoor_temperature_original:
-        +location: "./fact_indoor_temperature_original.csv"
+      fact_indoor_temperature:
+        +location: "./gdrive/fact_indoor_temperature.csv"
 
-      fact_indoor_humidity_original:
-        +location: "./fact_indoor_humidity_original.csv"
+      fact_indoor_humidity:
+        +location: "./gdrive/fact_indoor_humidity.csv"
