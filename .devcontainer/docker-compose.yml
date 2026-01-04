@@ -2,12 +2,18 @@ version: '3.8'
 
 services:
   dwh-sm2-devcontainer:
+    container_name: dwh-sm2-devcontainer
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ..:/workspace
+      - ~/.config/rclone:/home/vscode/.config/rclone  # Přidáno pro Rclone konfiguraci
     working_dir: /workspace
     tty: true
+    stdin_open: true
     environment:
       - PYTHONUNBUFFERED=1
+      - INFLUX_URL=http://influxdb:8086  # Předpokládaná URL pro InfluxDB
+    ports:
+      - "8086:8086"  # Pro přístup k InfluxDB pokud bude potřeba
