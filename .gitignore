@@ -1,15 +1,30 @@
 
+# Build and dependencies
 target/
 gdrive/
 dbt_packages/
 dbt_modules/
+
+# Logs
 logs/
+*.log
+doc.log
+
+# OS and editor
 **/.DS_Store
 .user.yml
+
+# Python
 venv/
 env/
+__pycache__/
+*.pyc
+
+# Database files
 **/*.duckdb
 **/*.duckdb.wal
+
+# Scripts and data (keep specific ones)
 *.sh
 *.csv
 *.zip
@@ -25,7 +40,19 @@ tmp_docs/
 *.gpickle
 latest/
 
+# Temporary and test files
+tmp_*.flux
+*.txt~
+
+# DevContainer local config
+.config/
+*.devcontainer.json.txt
+
+# Aider
+.aider*
+
+# Exceptions (keep these)
 !docs/**
 !seeds/**
 !scripts/**
-.aider*
+!.devcontainer/devcontainer.json
