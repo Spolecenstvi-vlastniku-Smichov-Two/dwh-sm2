@@ -4,6 +4,7 @@ target/
 gdrive/
 dbt_packages/
 dbt_modules/
+public/
 
 # Logs
 logs/
