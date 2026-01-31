@@ -9,7 +9,7 @@ export const DATASET_CONFIG = {
   // Definice datového zdroje
   source: {
     type: 'parquet',
-    url: './sm2_public_dataset.parquet',
+    url: '/dwh-sm2/datex/sm2_public_dataset.parquet',
     // Mapování sloupců z Parquetu
     columns: {
       time: 0,      // Date
