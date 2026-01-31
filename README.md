@@ -1077,6 +1077,63 @@ dbt source freshness
 
 ---
 
+## Historical Data Recovery
+
+### Understanding the `history` Parameter
+
+The `history` parameter in `seeds/mapping_sources.csv` controls how far back the dbt models process data:
+
+```csv
+file_nm,source_nm,history
+fact.csv,Atrea,4          # Process last 4 months
+fact_indoor_humidity.csv,ThermoPro,4
+fact_indoor_temperature.csv,ThermoPro,4
+```
+
+**How it works:**
+- In dbt model `fact.sql`: `start_ts = date_trunc('month', now()) - (history - 1) month`
+- Example with `history = 4`: If current date is 2026-01-15, then `start_ts = 2025-11-01`
+- Only data WHERE `time >= start_ts` is included in the output
+
+**Why this matters:**
+- Controls the rolling window of data retention
+- Prevents processing of very old historical data
+- Allows reprocessing of recent months when needed
+
+### Recovering Missing Historical Data
+
+If historical data is missing from the pipeline (e.g., sensor outage, missed imports), it can be recovered by:
+
+1. **Check the Archive:**
+   ```bash
+   rclone ls sm2drive:Vzduchotechnika/Archiv/
+   ```
+   Archives are stored as `YYYY-MM-DD_HH-MM-SS/` with the original data files.
+
+2. **Extend the History Window:**
+   - Edit `seeds/mapping_sources.csv`
+   - Increase `history` parameter (e.g., from `2` to `4` or more)
+   - Commit and push to `main` branch
+
+3. **Run Workflows:**
+   - The `refresh` workflow will re-process data from Google Drive (including archived data)
+   - The `InfluxImportNormalize` workflow will import the re-processed data
+   - Data will propagate through all layers automatically
+
+**Example (2025-11 recovery):**
+- Original `history = 2` only processed data from 2025-12 onwards
+- Changed to `history = 4` to include 2025-11
+- Workflows automatically picked up archived data from `Vzduchotechnika/Archiv/2026-01-06_01-04-28/`
+- Result: Missing sm2_01-09 data from November 2025 was successfully recovered
+
+**Important Notes:**
+- Archives contain original data exports from Atrea/ThermoPro systems
+- Workflow automatically processes these files when extended history allows
+- No manual import scripts needed - standard workflow handles everything
+- Data consistency is maintained across all layers (Influx → Normalized → Public)
+
+---
+
 ## Contributing
 
 1. Fork the repository

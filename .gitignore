@@ -1,30 +1,91 @@
+# ==============================================================================
+# LOKÁLNÍ VÝVOJOVÉ PROSTŘEDÍ
+# ==============================================================================
+.venv/
+venv/
+.python-version
+.pytest_cache/
+__pycache__/
+*.egg-info/
+*.egg
+dist/
+build/
+pip.env
+requirements.lock
 
+# Testovací adresáře
+test-output/
+test-input/
+tmp_*.flux
+*.log
+
+# Lokální konfigurace
+.rclone.conf
+.env
+.env.*
+.local.*
+.sm2env
+.vscode
+.user.yml
+requirements.txt
+
+# Lokální skripty (jen pro lokální vývoj)
+scripts.local/
+
+# Rclone mount logs
+.rclone-mount.log
+.rclone-mount-error.log
+
+# ==============================================================================
+# DBT
+# ==============================================================================
 target/
-gdrive/
 dbt_packages/
 dbt_modules/
 logs/
-**/.DS_Store
-.user.yml
-venv/
-env/
+tmp_docs/
+
+# ==============================================================================
+# DATA (produktční i testovací)
+# ==============================================================================
+gdrive/
+latest/
+Data         # Symlink to Google Drive Shared Drive
+*.csv
 **/*.duckdb
 **/*.duckdb.wal
-*.sh
-*.csv
 *.zip
+
+# ==============================================================================
+# SYSTÉMOVÉ SOUBORY
+# ==============================================================================
+**/.DS_Store
+*.sh
+
+# ==============================================================================
+# OSTATNÉ
+# ==============================================================================
 images/
 etc/
 prior/
 compiled/
 run/
-tmp_docs/
 *.html
-*.json
 *.msgpack
 *.gpickle
-latest/
 
+# ==============================================================================
+# JSON SEDY NECHCEME (ale většinu chceme!)
+# ==============================================================================
+# Přidáme zde specifické JSON patterny podle potřeby
+# Např. temporální JSON soubory atd.
+
+# ==============================================================================
+# VÝJIMKY (tyto soubory CHCEME v gitu)
+# ==============================================================================
 !docs/**
 !seeds/**
 !scripts/**
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
