@@ -5,7 +5,7 @@
     <title>Data Explorer</title>
     <base href="/datex/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/dwh-sm2/datex/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apache-arrow@14.0.0/+esm" type="module"></script>
 </head>
@@ -59,7 +59,7 @@
     <!-- Parquet-WASM + Chart.js -->
     <script type="module">
         import { parquetRead } from 'https://cdn.jsdelivr.net/npm/hyparquet@1.0.0/+esm';
-        import { DATASET_CONFIG, ConfigHelpers } from 'config.js';
+        import { DATASET_CONFIG, ConfigHelpers } from '/dwh-sm2/datex/config.js';
 
         console.log('✅ Config loaded:', DATASET_CONFIG.name);
 
