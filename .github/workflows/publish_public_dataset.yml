@@ -1,9 +1,6 @@
 name: Publish Public Dataset
 
 on:
-  push:
-    branches:
-      - main
   schedule:
     # každý týden v pondělí v 03:10 CET (Prague je CET/CEST; GitHub cron je v UTC, přizpůsob si)
     - cron: "10 2 * * 6"
@@ -61,3 +58,17 @@ jobs:
       - name: Build public dataset (CSV + Parquet + README + schema) and upload
         run: |
           python3 scripts/build_public_dataset.py
+
+      - name: Copy Parquet to Data Explorer
+        run: |
+          cp ./public/sm2_public_dataset.parquet ./docs/datex/
+          echo "✅ Parquet zkopírován do docs/datex/"
+          ls -lh ./docs/datex/sm2_public_dataset.parquet
+
+      - name: Commit and push Parquet update
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add ./docs/datex/sm2_public_dataset.parquet
+          git diff --staged --quiet || git commit -m "chore: update sm2_public_dataset.parquet for Data Explorer"
+          git push
