@@ -5,6 +5,7 @@ export const DATASET_CONFIG = {
   // Metadata o datasetu
   name: 'SM2 Teploty',
   version: '1.0.0',
+  locale: 'cs-CZ',  // Pro formátování data
 
   // Definice datového zdroje
   source: {
@@ -31,7 +32,7 @@ export const DATASET_CONFIG = {
     timeControls: [
       {
         id: 'language',
-        label: 'Jazyk',
+        label: 'Language',
         type: 'select',
         options: [
           { value: 'cz', label: 'Čeština' },

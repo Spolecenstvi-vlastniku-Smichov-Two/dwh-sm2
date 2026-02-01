@@ -1681,11 +1681,11 @@
                 const labels = timePeriodKeys.map(t => {
                     const date = timePeriodMap.get(t);
                     if (grain === 'month') {
-                        return date.toLocaleDateString('cs-CZ', { year: 'numeric', month: 'short' });
+                        return date.toLocaleDateString(DATASET_CONFIG.locale, { year: 'numeric', month: 'short' });
                     } else if (grain === 'day') {
-                        return date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' });
+                        return date.toLocaleDateString(DATASET_CONFIG.locale, { day: 'numeric', month: 'short' });
                     } else {
-                        return date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short', hour: '2-digit' });
+                        return date.toLocaleDateString(DATASET_CONFIG.locale, { day: 'numeric', month: 'short', hour: '2-digit' });
                     }
                 });
 

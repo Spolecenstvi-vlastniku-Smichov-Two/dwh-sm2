@@ -5,6 +5,7 @@ export const DATASET_CONFIG = {
   // Metadata o datasetu
   name: 'SM2 Temperatures',
   version: '1.0.0',
+  locale: 'en-US',  // For date formatting
 
   // Definice datového zdroje
   source: {
