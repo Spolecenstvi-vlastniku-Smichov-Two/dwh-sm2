@@ -539,20 +539,43 @@
 
             // Zdroje
             const sourcesParam = params.get('sources');
-            if (sourcesParam) {
-                const sourcesToSelect = sourcesParam.split(',');
+            // Pokud URL má jakýkoliv source/floors parametr, ignoruj defaulty z configu
+            // a nastav všechny zdroje podle URL (včetně vypnutí těch co nejsou)
+            const sourcesToSelect = sourcesParam ? sourcesParam.split(',') : [];
+            const sources = DATASET_CONFIG.sources || {};
+
+            // Pokud existuje floors parametr pro zdroj s floors, automaticky přidej tento zdroj do výběru
+            Object.entries(sources).forEach(([sourceKey, source]) => {
+                if (source.floors) {
+                    const floorsParam = params.get(`floors_${sourceKey}`);
+                    if (floorsParam && !sourcesToSelect.includes(sourceKey)) {
+                        sourcesToSelect.push(sourceKey);
+                    }
+                }
+            });
+
+            const hasAnySourceParam = sourcesParam ||
+                Object.keys(sources).some(key => params.has(`floors_${key}`));
+            if (hasAnySourceParam) {
                 document.querySelectorAll('.source-cb').forEach(cb => {
-                    cb.checked = sourcesToSelect.includes(cb.value);
+                    const isChecked = sourcesToSelect.includes(cb.value);
+                    cb.checked = isChecked;
+                    // Aktualizuj filterState pro Atrea (boolean)
+                    if (!DATASET_CONFIG.sources[cb.value]?.floors) {
+                        filterState.sources[cb.value] = isChecked;
+                    }
                 });
             }
 
             // Podlaží pro každý zdroj
-            const sources = DATASET_CONFIG.sources || {};
             Object.entries(sources).forEach(([sourceKey, source]) => {
                 if (source.floors) {
                     const floorsParam = params.get(`floors_${sourceKey}`);
                     if (floorsParam) {
                         const floorsToSelect = floorsParam.split(',');
+                        // Aktualizuj i filterState
+                        filterState.sources[sourceKey] = new Set(floorsToSelect);
+
                         document.querySelectorAll(`input[type="checkbox"][data-level="floor"][data-scope="${sourceKey}"]`).forEach(cb => {
                             cb.checked = floorsToSelect.includes(cb.value);
                         });
