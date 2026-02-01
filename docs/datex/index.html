@@ -3,46 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <title>Data Explorer</title>
-    <base href="/datex/">
+    <base href="/dwh-sm2/datex/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/dwh-sm2/datex/styles.css">
+    <link rel="stylesheet" href="./styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apache-arrow@14.0.0/+esm" type="module"></script>
 </head>
 <body>
     <div class="header">
-        <h1>🏠 SM2 Průzkumník Teplot</h1>
-        <p>Apache Arrow.js + Chart.js • Parquet přímo v browseru</p>
+        <div class="header-left">
+            <h1 id="header-title"></h1>
+            <p id="header-subtitle"></p>
+        </div>
+        <div class="header-right" id="header-actions">
+            <!-- Tlačítka se generují dynamicky -->
+        </div>
     </div>
 
     <div class="container">
         <!-- Filtry - Časové ovládání -->
-        <div class="controls">
-            <div class="control-group">
-                <label>Zobrazení</label>
-                <select id="view-mode">
-                    <!-- Naplní se dynamicky z configu -->
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>Granularita</label>
-                <select id="grain">
-                    <!-- Naplní se dynamicky z configu -->
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>Perioda</label>
-                <select id="period">
-                    <!-- Naplní se dynamicky podle granularity -->
-                </select>
-            </div>
-
-            <div class="nav-buttons push-right">
-                <button class="nav-btn indigo" onclick="priorPeriod()">◀ Zpět</button>
-                <button class="nav-btn green" onclick="nextPeriod()">Vpřed ▶</button>
-            </div>
+        <div class="controls" id="time-controls-panel">
+            <!-- Generuje se dynamicky z DATASET_CONFIG.ui.timeControls -->
         </div>
 
         <!-- Filtry - Data filters -->
@@ -59,16 +40,133 @@
     <!-- Parquet-WASM + Chart.js -->
     <script type="module">
         import { parquetRead } from 'https://cdn.jsdelivr.net/npm/hyparquet@1.0.0/+esm';
-        import { DATASET_CONFIG, ConfigHelpers } from '/dwh-sm2/datex/config.js';
 
-        console.log('✅ Config loaded:', DATASET_CONFIG.name);
+        // Dynamicky načti config podle jazyka z URL
+        let DATASET_CONFIG, ConfigHelpers;
 
+        async function loadConfig() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const lang = urlParams.get('lang') || 'cz'; // Default = cz
+
+            const configPath = lang === 'en' ? './config_en.js' : './config.js';
+            const module = await import(configPath);
+            DATASET_CONFIG = module.DATASET_CONFIG;
+            ConfigHelpers = module.ConfigHelpers;
+
+            console.log('✅ Config loaded:', DATASET_CONFIG.name, '(lang=' + lang + ')');
+
+            // Pokračuj v inicializaci
+            initApp();
+        }
+
+        // Hlavní inicializační funkce
+        function initApp() {
+        // ===== FUNKCE PRO ZMĚNU JAZYKA =====
+        function changeLanguage(lang) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('lang', lang);
+            window.location.href = url.toString();
+        }
+
+        // ===== STAVOVÝ SYSTÉM =====
+        // Generický stav pro všechny filtry
+        const filterState = {
+            // Location levels - { section: Set([1,2,3]), floor: Set(['1NP', '2PP']) }
+            location: initializeLocationState(),
+            // Sources - { Atrea: true, ThermoPro: Set(['1NP', '2PP']) }
+            sources: initializeSourceState()
+        };
+
+        function initializeLocationState() {
+            const state = {};
+            const globalLevels = DATASET_CONFIG.locationHierarchy?.global || [];
+
+            globalLevels.forEach(level => {
+                const defaultValues = Array.isArray(level.default) ? level.default : [];
+                state[level.key] = new Set(defaultValues);
+            });
+
+            return state;
+        }
+
+        function initializeSourceState() {
+            const state = {};
+            const sources = DATASET_CONFIG.sources || {};
+
+            Object.entries(sources).forEach(([key, config]) => {
+                if (!config.floors) {
+                    // Simple source - boolean
+                    state[key] = config.default ?? false;
+                } else {
+                    // Hierarchical source - Set
+                    state[key] = new Set();
+                }
+            });
+
+            return state;
+        }
+
+        // ===== LOCATION STATE HELPERS =====
+        function updateLocationState(levelKey, value, checked, scope) {
+            if (scope === 'global') {
+                if (!filterState.location[levelKey]) {
+                    filterState.location[levelKey] = new Set();
+                }
+                if (checked) {
+                    filterState.location[levelKey].add(value);
+                } else {
+                    filterState.location[levelKey].delete(value);
+                }
+            } else {
+                // Source-specific location levels (např. podlaží pro ThermoPro)
+                // Ukládáme přímo do filterState.sources[sourceKey] jako Set
+                if (!filterState.sources[scope]) {
+                    filterState.sources[scope] = new Set();
+                }
+                if (checked) {
+                    filterState.sources[scope].add(value);
+                } else {
+                    filterState.sources[scope].delete(value);
+                }
+            }
+        }
+
+        function getSelectedLocationValues(levelKey) {
+            return filterState.location[levelKey] || new Set();
+        }
+
+        function isLocationValueSelected(levelKey, value) {
+            const selected = filterState.location[levelKey];
+            return selected ? selected.has(value) : false;
+        }
+
+        // ===== SOURCE STATE HELPERS =====
+        function getSourceState(sourceKey) {
+            return filterState.sources[sourceKey];
+        }
+
+        function setSourceState(sourceKey, value) {
+            filterState.sources[sourceKey] = value;
+        }
+
+        function isSourceSelected(sourceKey) {
+            const state = getSourceState(sourceKey);
+            // Pro boolean (Atrea) vrátím hodnotu přímo
+            if (typeof state === 'boolean') return state;
+            // Pro Set (ThermoPro floors) vrátím true, když je vybráno alespoň jedna hodnota
+            if (state instanceof Set) return state.size > 0;
+            return false;
+        }
+
+        function getSourceItems(sourceKey) {
+            const state = getSourceState(sourceKey);
+            return state instanceof Set ? state : null;
+        }
+
+        // ===== DATA =====
         let rawData = null;
         let chart = null;
         let currentData = [];
-        let availableFloors = []; // dostupná podlaží (ThermoPro)
-        let selectedFloors = new Set(); // vybraná podlaží ThermoPro
-        let selectedAtrea = true; // zda je vybrána Atrea
 
         // Barvy pro různé lokace - z configu
         const colors = DATASET_CONFIG.chart.colors;
@@ -77,12 +175,578 @@
             return colors[index % colors.length];
         }
 
+        // ===== URL STATE MANAGEMENT =====
+        // Ukládá a načítá stav filtrů do/z URL pro sdílení
+
+        // Získá aktuální stav všech filtrů z DOM
+        function getFilterState() {
+            const state = {};
+
+            // Metriky
+            const metricCheckboxes = document.querySelectorAll('.metric-cb:checked');
+            state.metrics = Array.from(metricCheckboxes).map(cb => cb.value);
+
+            // Sekce (globální location level)
+            const sectionCheckboxes = document.querySelectorAll('input[type="checkbox"][data-level="section"]:checked');
+            state.sections = Array.from(sectionCheckboxes).map(cb => cb.value);
+
+            // Zdroje a podlaží
+            const sources = DATASET_CONFIG.sources || {};
+            state.sources = [];
+            state.floors = {};
+
+            Object.entries(sources).forEach(([sourceKey, source]) => {
+                if (source.floors) {
+                    // Zdroj s podlažími - získat vybraná podlaží
+                    const floorCheckboxes = document.querySelectorAll(`input[type="checkbox"][data-level="floor"][data-scope="${sourceKey}"]:checked`);
+                    const selectedFloors = Array.from(floorCheckboxes).map(cb => cb.value);
+                    if (selectedFloors.length > 0) {
+                        state.floors[sourceKey] = selectedFloors;
+                    }
+                } else {
+                    // Jednoduchý zdroj - checkbox
+                    const sourceCb = document.querySelector(`.source-cb[value="${sourceKey}"]`);
+                    if (sourceCb && sourceCb.checked) {
+                        state.sources.push(sourceKey);
+                    }
+                }
+            });
+
+            // Časové kontroly
+            state.grain = document.getElementById('grain')?.value || '';
+            state.period = document.getElementById('period')?.value || '';
+            state.view = document.getElementById('view-mode')?.value || '';
+            state.lang = document.getElementById('language')?.value || 'cz';
+
+            return state;
+        }
+
+        // Aktualizuje URL podle aktuálního stavu filtrů
+        function updateURL() {
+            const state = getFilterState();
+            const params = new URLSearchParams();
+
+            if (state.metrics.length) params.set('metrics', state.metrics.join(','));
+            if (state.sections.length) params.set('sections', state.sections.join(','));
+            if (state.sources.length) params.set('sources', state.sources.join(','));
+            if (state.grain) params.set('grain', state.grain);
+            if (state.period) params.set('period', state.period);
+            if (state.view) params.set('view', state.view);
+            if (state.lang) params.set('lang', state.lang);
+
+            // Podlaží pro každý zdroj zvlášť
+            Object.entries(state.floors).forEach(([sourceKey, floors]) => {
+                if (floors.length) params.set(`floors_${sourceKey}`, floors.join(','));
+            });
+
+            // Aktualizuj URL bez reloadu stránky
+            const newURL = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+            window.history.replaceState(null, '', newURL);
+        }
+
+        // Zkopíruje aktuální URL do schránky
+        function copyShareURL() {
+            const url = window.location.href;
+
+            // Moderní prohlížeče s Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(() => {
+                    showCopyConfirmation();
+                }).catch(err => {
+                    console.error('Clipboard API failed, trying fallback:', err);
+                    fallbackCopy(url);
+                });
+            } else {
+                // Fallback pro starší prohlížeče
+                fallbackCopy(url);
+            }
+        }
+
+        // Fallback metoda pro kopírování
+        function fallbackCopy(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showCopyConfirmation();
+                } else {
+                    console.error('Fallback: Nepodařilo se zkopírovat');
+                }
+            } catch (err) {
+                console.error('Fallback: Chyba při kopírování:', err);
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        // Zobrazí potvrzení o zkopírování
+        function showCopyConfirmation() {
+            const btn = document.getElementById('btn-copy-url');
+            if (btn) {
+                const originalText = btn.textContent;
+                btn.textContent = ConfigHelpers.t('copiedToClipboard');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }
+        }
+
+        // Vyčistí všechny filtry na výchozí hodnoty
+        function clearFilters() {
+            // Reset metriky - jen globální (venkovní)
+            const globalMetrics = Object.entries(DATASET_CONFIG.metrics)
+                .filter(([, cfg]) => cfg.global)
+                .map(([key]) => key);
+
+            document.querySelectorAll('.metric-cb').forEach(cb => {
+                cb.checked = globalMetrics.includes(cb.value);
+            });
+
+            // Reset sekce - žádná nevybraná
+            document.querySelectorAll('input[type="checkbox"][data-level="section"]').forEach(cb => {
+                cb.checked = false;
+            });
+
+            // Reset zdrojů
+            const sources = DATASET_CONFIG.sources || {};
+            Object.entries(sources).forEach(([sourceKey, source]) => {
+                if (source.floors) {
+                    // ThermoPro - žádná podlaží nevybraná
+                    document.querySelectorAll(`input[type="checkbox"][data-level="floor"][data-scope="${sourceKey}"]`).forEach(cb => {
+                        cb.checked = false;
+                    });
+                } else {
+                    // Atrea - výchozí hodnota z configu
+                    const sourceCb = document.querySelector(`.source-cb[value="${sourceKey}"]`);
+                    if (sourceCb) {
+                        sourceCb.checked = source.default || false;
+                    }
+                }
+            });
+
+            // Reset časových kontrol na výchozí
+            const grainSelect = document.getElementById('grain');
+            if (grainSelect) {
+                const defaultGrain = DATASET_CONFIG.granularity.find(g => g.default);
+                if (defaultGrain) {
+                    grainSelect.value = defaultGrain.value || defaultGrain;
+                } else {
+                    grainSelect.value = DATASET_CONFIG.granularity[0].value;
+                }
+            }
+
+            const viewSelect = document.getElementById('view-mode');
+            if (viewSelect) {
+                const defaultView = DATASET_CONFIG.viewModes.find(v => v.default);
+                if (defaultView) {
+                    viewSelect.value = defaultView.value || defaultView;
+                } else {
+                    viewSelect.value = DATASET_CONFIG.viewModes[0].value;
+                }
+            }
+
+            // Reset dropdownu oblíbených
+            const favSelect = document.getElementById(DATASET_CONFIG.ui.favoritesDropdown?.id);
+            if (favSelect) favSelect.value = '';
+
+            // Aktualizuj periody a překresli
+            updatePeriodOptions();
+            updateChart();
+            updateURL();
+        }
+
+        // ===== FAVORITES (localStorage) =====
+
+        const FAVORITES_KEY = 'datex_favorites';
+
+        // Získá oblíbené z localStorage
+        function getFavorites() {
+            try {
+                const stored = localStorage.getItem(FAVORITES_KEY);
+                return stored ? JSON.parse(stored) : [];
+            } catch (e) {
+                console.error('Chyba při načítání oblíbených:', e);
+                return [];
+            }
+        }
+
+        // Uloží oblíbené do localStorage
+        function saveFavorites(favorites) {
+            try {
+                localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+            } catch (e) {
+                console.error('Chyba při ukládání oblíbených:', e);
+            }
+        }
+
+        // Uloží aktuální filtr jako oblíbený
+        function saveFavorite() {
+            const name = prompt(ConfigHelpers.t('favoriteNamePrompt'));
+            if (!name || !name.trim()) return;
+
+            const url = window.location.href;
+            const favorites = getFavorites();
+
+            // Přidat nový
+            favorites.push({
+                id: Date.now().toString(),
+                name: name.trim(),
+                url: url,
+                timestamp: new Date().toISOString()
+            });
+
+            saveFavorites(favorites);
+            updateFavoritesDropdown();
+
+            // Zobrazit potvrzení
+            const btn = document.getElementById('btn-save-favorite');
+            if (btn) {
+                const originalText = btn.textContent;
+                btn.textContent = ConfigHelpers.t('favoriteSaved');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }
+        }
+
+        // Načte oblíbený filtr
+        function loadFavorite(id) {
+            if (!id) return;
+
+            const favorites = getFavorites();
+            const favorite = favorites.find(f => f.id === id);
+
+            if (favorite) {
+                window.location.href = favorite.url;
+            }
+        }
+
+        // Smaže oblíbený filtr
+        function deleteFavorite(id, event) {
+            event.stopPropagation();
+
+            if (!confirm(ConfigHelpers.t('deleteFavoriteConfirm'))) return;
+
+            let favorites = getFavorites();
+            favorites = favorites.filter(f => f.id !== id);
+            saveFavorites(favorites);
+            updateFavoritesDropdown();
+        }
+
+        // Smaže vybraný oblíbený filtr z dropdownu
+        function deleteSelectedFavorite() {
+            const config = DATASET_CONFIG.ui.favoritesDropdown;
+            if (!config) return;
+
+            const select = document.getElementById(config.id);
+            if (!select || !select.value) return;
+
+            const favorites = getFavorites();
+            const favorite = favorites.find(f => f.id === select.value);
+
+            if (!favorite) return;
+
+            const confirmMsg = ConfigHelpers.t('deleteFavoriteNamedConfirm').replace('{name}', favorite.name);
+            if (confirm(confirmMsg)) {
+                const updated = favorites.filter(f => f.id !== select.value);
+                saveFavorites(updated);
+                updateFavoritesDropdown();
+            }
+        }
+
+        // Aktualizuje stav tlačítka smazat (povoleno/zakázáno)
+        function updateDeleteFavButton() {
+            const config = DATASET_CONFIG.ui.favoritesDropdown;
+            if (!config || !config.showDelete) return;
+
+            const select = document.getElementById(config.id);
+            const deleteBtn = document.getElementById('btn-delete-fav');
+            if (!select || !deleteBtn) return;
+
+            deleteBtn.disabled = !select.value;
+        }
+
+        // Aktualizuje dropdown oblíbených
+        function updateFavoritesDropdown() {
+            const config = DATASET_CONFIG.ui.favoritesDropdown;
+            if (!config) return;
+
+            const select = document.getElementById(config.id);
+            if (!select) return;
+
+            const favorites = getFavorites();
+
+            // Zjisti zda aktuální URL odpovídá některému oblíbenému
+            const currentURL = window.location.href;
+            const matchingFavorite = favorites.find(fav => {
+                try {
+                    const favURL = new URL(fav.url);
+                    const currURL = new URL(currentURL);
+                    return favURL.search === currURL.search;
+                } catch {
+                    return fav.url === currentURL;
+                }
+            });
+
+            const currentValue = matchingFavorite ? matchingFavorite.id : select.value;
+
+            select.innerHTML = '';
+
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = ConfigHelpers.t('selectFavoritePlaceholder');
+            select.appendChild(emptyOption);
+
+            favorites.forEach(fav => {
+                const option = document.createElement('option');
+                option.value = fav.id;
+                option.textContent = fav.name;
+                select.appendChild(option);
+            });
+
+            select.value = currentValue;
+            updateDeleteFavButton();
+        }
+
+        // Načte stav filtrů z URL a aplikuje je na UI
+        function loadFiltersFromURL() {
+            const params = new URLSearchParams(window.location.search);
+
+            // Metriky
+            const metricsParam = params.get('metrics');
+            if (metricsParam) {
+                const metricsToSelect = metricsParam.split(',');
+                document.querySelectorAll('.metric-cb').forEach(cb => {
+                    cb.checked = metricsToSelect.includes(cb.value);
+                });
+            }
+
+            // Sekce
+            const sectionsParam = params.get('sections');
+            if (sectionsParam) {
+                const sectionsToSelect = sectionsParam.split(',');
+                document.querySelectorAll('input[type="checkbox"][data-level="section"]').forEach(cb => {
+                    cb.checked = sectionsToSelect.includes(cb.value);
+                });
+            }
+
+            // Zdroje
+            const sourcesParam = params.get('sources');
+            if (sourcesParam) {
+                const sourcesToSelect = sourcesParam.split(',');
+                document.querySelectorAll('.source-cb').forEach(cb => {
+                    cb.checked = sourcesToSelect.includes(cb.value);
+                });
+            }
+
+            // Podlaží pro každý zdroj
+            const sources = DATASET_CONFIG.sources || {};
+            Object.entries(sources).forEach(([sourceKey, source]) => {
+                if (source.floors) {
+                    const floorsParam = params.get(`floors_${sourceKey}`);
+                    if (floorsParam) {
+                        const floorsToSelect = floorsParam.split(',');
+                        document.querySelectorAll(`input[type="checkbox"][data-level="floor"][data-scope="${sourceKey}"]`).forEach(cb => {
+                            cb.checked = floorsToSelect.includes(cb.value);
+                        });
+                    }
+                }
+            });
+
+            // Časové kontroly
+            const grainParam = params.get('grain');
+            if (grainParam) {
+                const grainSelect = document.getElementById('grain');
+                if (grainSelect) grainSelect.value = grainParam;
+            }
+
+            const periodParam = params.get('period');
+            if (periodParam) {
+                const periodSelect = document.getElementById('period');
+                if (periodSelect) periodSelect.value = periodParam;
+            }
+
+            const viewParam = params.get('view');
+            if (viewParam) {
+                const viewSelect = document.getElementById('view-mode');
+                if (viewSelect) {
+                    // Odstraň případné /index.html z konce (pokud je URL špatně naformátovaná)
+                    viewSelect.value = viewParam.replace(/\/index\.html$/, '');
+                }
+            }
+
+            // Jazyk
+            const langParam = params.get('lang');
+            if (langParam) {
+                const langSelect = document.getElementById('language');
+                if (langSelect) langSelect.value = langParam;
+            }
+        }
+
         // ===== INIT UI Z CONFIGU =====
         function initUIFromConfig() {
+            initHeader();
+            initTimeControls();
             initFilters();
-            initGranularitySelect();
-            initViewModeSelect();
-            // Podlaží se inicializují v initHierarchicalSubItems() po načtení dat
+            // Dynamické location levels se inicializují v initDynamicLocationLevels() po načtení dat
+        }
+
+        function initHeader() {
+            const titleEl = document.getElementById('header-title');
+            const subtitleEl = document.getElementById('header-subtitle');
+
+            if (titleEl) titleEl.textContent = DATASET_CONFIG.ui.header.title;
+            if (subtitleEl) subtitleEl.textContent = DATASET_CONFIG.ui.header.subtitle;
+
+            // Vytvoř tlačítka v headeru
+            initHeaderActions();
+        }
+
+        function initHeaderActions() {
+            const actionsContainer = document.getElementById('header-actions');
+            if (!actionsContainer) return;
+
+            DATASET_CONFIG.ui.actionButtons.forEach(btn => {
+                const button = document.createElement('button');
+                button.className = `nav-btn ${btn.class}`;
+                button.textContent = btn.label;
+                button.id = btn.id;
+
+                // Nastav onclick podle action názvu
+                if (btn.action === 'copyShareURL') {
+                    button.onclick = () => copyShareURL();
+                } else if (btn.action === 'saveFavorite') {
+                    button.onclick = () => saveFavorite();
+                } else if (btn.action === 'clearFilters') {
+                    button.onclick = () => clearFilters();
+                }
+
+                actionsContainer.appendChild(button);
+            });
+        }
+
+        function initTimeControls() {
+            const panel = document.getElementById('time-controls-panel');
+            if (!panel) {
+                console.error('time-controls-panel not found');
+                return;
+            }
+
+            // Vytvoř control group pro každé time control
+            DATASET_CONFIG.ui.timeControls.forEach(control => {
+                const group = document.createElement('div');
+                group.className = 'control-group';
+
+                const label = document.createElement('label');
+                label.textContent = control.label;
+                group.appendChild(label);
+
+                const select = document.createElement('select');
+                select.id = control.id;
+
+                if (!control.dynamic) {
+                    // Naplní se z configu (viewModes, granularity) nebo z inline options
+                    let options = [];
+                    if (control.options) {
+                        // Inline options (např. pro language select)
+                        options = control.options;
+                    } else if (control.configKey) {
+                        // Options z configu
+                        options = DATASET_CONFIG[control.configKey] || [];
+                    }
+
+                    options.forEach(opt => {
+                        const option = document.createElement('option');
+                        option.value = opt.value || opt;
+                        option.textContent = opt.label || opt;
+                        if (opt.default) option.selected = true;
+                        select.appendChild(option);
+                    });
+                }
+                // dynamic select (period) se naplní později z dat
+
+                group.appendChild(select);
+                panel.appendChild(group);
+            });
+
+            // Přidat dropdown pro oblíbené
+            const favConfig = DATASET_CONFIG.ui.favoritesDropdown;
+            if (favConfig) {
+                const favGroup = document.createElement('div');
+                favGroup.className = 'control-group';
+
+                const favLabel = document.createElement('label');
+                favLabel.textContent = favConfig.label;
+                favGroup.appendChild(favLabel);
+
+                // Wrapper pro select a tlačítko smazat
+                const favWrapper = document.createElement('div');
+                favWrapper.className = 'favorites-wrapper';
+
+                const favSelect = document.createElement('select');
+                favSelect.id = favConfig.id;
+                favSelect.className = 'favorites-select';
+
+                // Prázdná option
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.textContent = favConfig.emptyLabel || '-- Vyber --';
+                favSelect.appendChild(emptyOption);
+
+                // Event listener pro načtení oblíbeného
+                favSelect.addEventListener('change', () => {
+                    updateDeleteFavButton();
+                    if (favSelect.value) {
+                        loadFavorite(favSelect.value);
+                    }
+                });
+
+                favWrapper.appendChild(favSelect);
+
+                // Tlačítko pro smazání vybraného oblíbeného
+                if (favConfig.showDelete) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.id = 'btn-delete-fav';
+                    deleteBtn.className = 'btn-delete-fav';
+                    deleteBtn.textContent = ConfigHelpers.t('favoriteDeleteIcon');
+                    deleteBtn.title = ConfigHelpers.t('favoriteDeleteTitle');
+                    deleteBtn.disabled = true;
+                    deleteBtn.onclick = () => deleteSelectedFavorite();
+                    favWrapper.appendChild(deleteBtn);
+                }
+
+                favGroup.appendChild(favWrapper);
+                panel.appendChild(favGroup);
+            }
+
+            // Přidat navigační tlačítka (Zpět/Vpřed) zarovnaná doprava
+            const navButtons = document.createElement('div');
+            navButtons.className = 'nav-buttons push-right';
+
+            DATASET_CONFIG.ui.navButtons.forEach(btn => {
+                const button = document.createElement('button');
+                button.className = `nav-btn ${btn.class}`;
+                button.textContent = btn.label;
+                button.id = btn.id;
+
+                // Nastav onclick podle action názvu
+                if (btn.action === 'priorPeriod') {
+                    button.onclick = () => priorPeriod();
+                } else if (btn.action === 'nextPeriod') {
+                    button.onclick = () => nextPeriod();
+                }
+
+                navButtons.appendChild(button);
+            });
+
+            panel.appendChild(navButtons);
         }
 
         function initFilters() {
@@ -92,35 +756,114 @@
                 return;
             }
 
-            const filters = ConfigHelpers.getFilters();
-            console.log('Initializing filters:', filters);
-
-            filters.forEach(filter => {
-                const group = document.createElement('div');
-                group.className = 'control-group';
-                group.dataset.filterKey = filter.key;
-
-                const label = document.createElement('label');
-                label.textContent = filter.label;
-                group.appendChild(label);
-
-                const content = document.createElement('div');
-                content.style.display = 'flex';
-                content.style.gap = '0.75rem';
-                content.style.alignItems = 'center';
-                content.style.flexWrap = 'wrap';
-                content.dataset.filterContent = filter.key;
-
-                group.appendChild(content);
-                panel.appendChild(group);
-
-                // Render filtru podle typu
-                if (filter.type === 'checkboxes') {
-                    renderCheckboxesFilter(filter, content);
-                } else if (filter.type === 'hierarchical') {
-                    renderHierarchicalFilter(filter, content);
-                }
+            // 1. Globální location levely
+            const globalLevels = DATASET_CONFIG.locationHierarchy?.global || [];
+            globalLevels.forEach(level => {
+                createLocationFilter(panel, level, 'global');
             });
+
+            // 2. Metriky (z filters configu)
+            const metricsFilter = ConfigHelpers.getFilter('metrics');
+            if (metricsFilter) {
+                createMetricsFilter(panel, metricsFilter);
+            }
+
+            // 3. Zdroje s jejich specifickými levely
+            const sourcesFilter = ConfigHelpers.getFilter('sources');
+            if (sourcesFilter) {
+                createSourcesFilter(panel, sourcesFilter);
+            }
+        }
+
+        function createLocationFilter(panel, levelConfig, scope) {
+            const group = document.createElement('div');
+            group.className = 'control-group';
+            group.dataset.filterKey = levelConfig.key;
+            group.dataset.filterScope = scope;
+
+            const label = document.createElement('label');
+            label.textContent = levelConfig.label;
+            group.appendChild(label);
+
+            const content = document.createElement('div');
+            content.style.display = 'flex';
+            content.style.gap = '0.75rem';
+            content.style.alignItems = 'center';
+            content.style.flexWrap = 'wrap';
+            content.dataset.filterContent = levelConfig.key;
+
+            group.appendChild(content);
+            panel.appendChild(group);
+
+            // Pokud jsou items definované, vygeneruj checkboxy
+            if (levelConfig.items !== 'dynamic') {
+                const defaultValues = Array.isArray(levelConfig.default) ? levelConfig.default : [];
+
+                if (Array.isArray(levelConfig.items)) {
+                    levelConfig.items.forEach(value => {
+                        const itemLabel = levelConfig.itemLabel ? levelConfig.itemLabel(value) : String(value);
+                        createLocationCheckbox(content, levelConfig.key, value, itemLabel, defaultValues.includes(value), scope);
+                    });
+                }
+            }
+            // Dynamic items (např. podlaží) se naplní později v initHierarchicalSubItems()
+        }
+
+        function createMetricsFilter(panel, filterConfig) {
+            const group = document.createElement('div');
+            group.className = 'control-group';
+            group.dataset.filterKey = filterConfig.key;
+
+            const label = document.createElement('label');
+            label.textContent = filterConfig.label;
+            group.appendChild(label);
+
+            const content = document.createElement('div');
+            content.style.display = 'flex';
+            content.style.gap = '0.75rem';
+            content.style.alignItems = 'center';
+            content.style.flexWrap = 'wrap';
+
+            group.appendChild(content);
+            panel.appendChild(group);
+
+            // Získej metriky z configu
+            const items = DATASET_CONFIG[filterConfig.configKey] || {};
+            const defaultValues = typeof filterConfig.default === 'function'
+                ? filterConfig.default(items)
+                : [];
+
+            Object.entries(items).forEach(([key, config]) => {
+                const itemLabel = filterConfig.itemLabel ? filterConfig.itemLabel(key, config) : key;
+                createCheckbox(content, filterConfig.checkboxClass, key, itemLabel, defaultValues.includes(key));
+            });
+        }
+
+        function createLocationCheckbox(container, levelKey, value, label, checked, scope) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'location-cb';
+            checkbox.dataset.level = levelKey;
+            checkbox.dataset.scope = scope;
+            checkbox.value = value;
+            checkbox.checked = checked;
+
+            checkbox.addEventListener('change', (e) => {
+                updateLocationState(levelKey, value, e.target.checked, scope);
+                updatePeriodOptions(e.target.checked);
+                updateChart();
+                updateURL();
+            });
+
+            const labelEl = document.createElement('label');
+            labelEl.style.display = 'flex';
+            labelEl.style.alignItems = 'center';
+            labelEl.style.gap = '0.25rem';
+            labelEl.style.cursor = 'pointer';
+            labelEl.appendChild(checkbox);
+            labelEl.appendChild(document.createTextNode(` ${label}`));
+
+            container.appendChild(labelEl);
         }
 
         function renderCheckboxesFilter(filter, container) {
@@ -173,6 +916,7 @@
                 }
                 updatePeriodOptions(e.target.checked);
                 updateChart();
+                updateURL();
             });
 
             labelEl.appendChild(checkbox);
@@ -180,152 +924,109 @@
             container.appendChild(labelEl);
         }
 
-        function renderHierarchicalFilter(filter, container) {
-            // Zdroje jsou definované v DATASET_CONFIG.sources
-            const sourcesKey = filter.sourceConfig || 'sources';
-            const sources = DATASET_CONFIG[sourcesKey];
-
-            if (!sources) {
-                console.warn(`Sources config "${sourcesKey}" not found`);
-                return;
-            }
+        function createSourcesFilter(panel, filterConfig) {
+            const sources = DATASET_CONFIG.sources || {};
 
             Object.values(sources).forEach(source => {
+                // 1. Vytvoř checkbox pro samotný zdroj
+                const sourceGroup = document.createElement('div');
+                sourceGroup.className = 'control-group';
+                sourceGroup.dataset.filterKey = 'sources';
+                sourceGroup.dataset.sourceKey = source.key;
+
+                const sourceLabel = document.createElement('label');
+                sourceLabel.textContent = source.label;
+                sourceGroup.appendChild(sourceLabel);
+
+                const sourceContent = document.createElement('div');
+                sourceContent.style.display = 'flex';
+                sourceContent.style.gap = '0.75rem';
+                sourceContent.style.alignItems = 'center';
+                sourceContent.style.flexWrap = 'wrap';
+
+                // Checkbox pro zdroj (jen pro zdroje BEZ floors - pro zdroje s floors se vybírají přímo podlaží)
                 if (!source.floors) {
-                    // Jednoduchý zdroj (např. Atrea)
-                    const sourceLabel = source.checkboxLabel || source.label;
-                    const defaultChecked = filter.default?.[source.key] || source.default || false;
-
+                    const defaultChecked = source.default ?? false;
                     createCheckbox(
-                        container,
-                        filter.checkboxClass,
+                        sourceContent,
+                        filterConfig.checkboxClass,
                         source.key,
-                        sourceLabel,
-                        defaultChecked
-                    );
-
-                    // Speciální handler pro Atrea
-                    if (source.key === 'Atrea') {
-                        const checkbox = container.querySelector(`input[value="${source.key}"]`);
-                        if (checkbox) {
-                            checkbox.onchange = (e) => {
-                                selectedAtrea = checkbox.checked;
-                                updatePeriodOptions(e.target.checked);
-                                updateChart();
-                            };
+                        source.checkboxLabel || source.label,
+                        defaultChecked,
+                        (checked, value) => {
+                            setSourceState(value, checked);
                         }
-                    }
-                } else {
-                    // Zdroj s podlažími (např. ThermoPro) - vytvoř kontejner
-                    const sourceDiv = document.createElement('div');
-                    sourceDiv.className = 'sub-filter-group';
-                    sourceDiv.dataset.sourceKey = source.key;
-
-                    const sourceLabel = document.createElement('span');
-                    sourceLabel.textContent = source.label + ':';
-                    sourceLabel.style.fontWeight = '500';
-                    sourceLabel.style.marginRight = '0.5rem';
-
-                    const subContainer = document.createElement('div');
-                    subContainer.id = `${source.key}-checkboxes`;
-                    subContainer.style.display = 'flex';
-                    subContainer.style.gap = '0.5rem';
-                    subContainer.style.alignItems = 'center';
-                    subContainer.style.flexWrap = 'wrap';
-
-                    sourceDiv.appendChild(sourceLabel);
-                    sourceDiv.appendChild(subContainer);
-                    container.appendChild(sourceDiv);
-
-                    // Podlaží se naplní v initHierarchicalSubItems() po načtení dat
+                    );
                 }
+
+                sourceGroup.appendChild(sourceContent);
+                panel.appendChild(sourceGroup);
+
+                // 2. Přidej specifické location levels pro tento zdroj
+                const sourceLevels = DATASET_CONFIG.locationHierarchy?.sources?.[source.key] || [];
+                sourceLevels.forEach(level => {
+                    createLocationFilter(panel, level, source.key);
+                });
             });
         }
 
-        // Naplní zanořené položky (podlaží) po načtení dat
-        function initHierarchicalSubItems() {
-            const filters = ConfigHelpers.getFilters();
-            const hierarchicalFilter = filters.find(f => f.type === 'hierarchical');
+        // Naplní dynamické location levely po načtení dat
+        function initDynamicLocationLevels() {
+            if (!rawData) return;
 
-            if (!hierarchicalFilter) return;
+            const sources = DATASET_CONFIG.sources || {};
 
-            const sourcesKey = hierarchicalFilter.sourceConfig || 'sources';
-            const sources = DATASET_CONFIG[sourcesKey];
+            Object.entries(sources).forEach(([sourceKey, source]) => {
+                const sourceLevels = DATASET_CONFIG.locationHierarchy?.sources?.[sourceKey] || [];
 
-            Object.values(sources).forEach(source => {
-                if (source.floors && rawData) {
-                    const container = document.getElementById(`${source.key}-checkboxes`);
-                    if (!container) return;
+                sourceLevels.forEach(level => {
+                    // Najdi kontejner pro tento level
+                    const levelContainer = document.querySelector(`[data-filter-key="${level.key}"][data-filter-scope="${sourceKey}"] [data-filter-content]`);
+                    if (!levelContainer) {
+                        console.log(`⚠️ Kontejner nenalezen pro ${sourceKey}.${level.key}, selector: [data-filter-key="${level.key}"][data-filter-scope="${sourceKey}"] [data-filter-content]`);
+                        return;
+                    }
 
-                    // Získej podlaží z dat
-                    const floors = new Set();
-                    rawData.forEach(row => {
-                        const location = ConfigHelpers.getColumn(row, 'location');
-                        const floor = ConfigHelpers.getColumn(row, 'floor');
+                    // Pokud je items: 'dynamic', zjisti hodnoty z dat
+                    if (level.items === 'dynamic') {
+                        const values = new Set();
 
-                        if (floor === source.floorValue) {
-                            const floorCode = ConfigHelpers.getFloorCode(location, source);
-                            if (floorCode && (floorCode.includes('NP') || floorCode.includes('PP'))) {
-                                floors.add(floorCode);
-                            }
-                        }
-                    });
+                        rawData.forEach(row => {
+                            const location = ConfigHelpers.getColumn(row, 'location');
+                            const floor = ConfigHelpers.getColumn(row, 'floor');
 
-                    console.log(`Found floors for ${source.key}:`, Array.from(floors));
+                            // Pouze řádky pro tento zdroj
+                            if (floor !== source.floorValue) return;
 
-                    // Seřad podlaží
-                    const sortedFloors = Array.from(floors).sort((a, b) => {
-                        const numA = parseInt(a.replace(/\D/g, '')) || 0;
-                        const numB = parseInt(b.replace(/\D/g, '')) || 0;
-                        const typeA = a.includes('NP') ? 'NP' : 'PP';
-                        const typeB = b.includes('NP') ? 'NP' : 'PP';
-
-                        if (typeA !== typeB) return typeA === 'NP' ? -1 : 1;
-                        if (typeA === 'NP') return numB - numA;
-                        return numA - numB;
-                    });
-
-                    availableFloors = sortedFloors;
-                    selectedFloors = new Set();
-
-                    // Vytvoř checkboxy
-                    sortedFloors.forEach(floor => {
-                        createCheckbox(container, 'floor-cb', floor, floor, false, (checked, value) => {
-                            if (checked) {
-                                selectedFloors.add(value);
-                            } else {
-                                selectedFloors.delete(value);
+                            // Parsovat hodnotu levelu z location
+                            const parsedValue = ConfigHelpers.parseLocationLevel(location, level, source);
+                            if (parsedValue) {
+                                // Aplikuj filtr pokud existuje
+                                if (level.itemFilter && !level.itemFilter(parsedValue)) return;
+                                values.add(parsedValue);
                             }
                         });
-                    });
-                }
-            });
-        }
 
-        function initGranularitySelect() {
-            const select = document.getElementById('grain');
-            DATASET_CONFIG.granularity.forEach(item => {
-                const option = document.createElement('option');
-                option.value = item.value;
-                option.textContent = item.label;
-                select.appendChild(option);
-            });
-        }
+                        console.log(`Dynamic values for ${sourceKey}.${level.key}:`, Array.from(values));
 
-        function initViewModeSelect() {
-            const select = document.getElementById('view-mode');
-            DATASET_CONFIG.viewModes.forEach(item => {
-                const option = document.createElement('option');
-                option.value = item.value;
-                option.textContent = item.label;
-                if (item.default) option.selected = true;
-                select.appendChild(option);
+                        // Seřad - použij customSort z configu nebo výchozí abecední řazení
+                        const valuesArray = Array.from(values);
+                        const sortedValues = level.customSort
+                            ? valuesArray.sort(level.customSort)
+                            : valuesArray.sort();
+
+                        sortedValues.forEach(value => {
+                            const itemLabel = level.itemLabel ? level.itemLabel(value) : String(value);
+                            createLocationCheckbox(levelContainer, level.key, value, itemLabel, false, sourceKey);
+                        });
+                    }
+                });
             });
         }
 
         // ===== SPRÁVA PERIOD =====
 
-        // Získá všechny dostupné periody z dat pro danou granularitu, vybrané metriky, sekce a podlaží
+        // Získá všechny dostupné periody z dat pro danou granularitu, vybrané metriky, location levely a zdroje
         function getAvailablePeriods(grain) {
             if (!rawData) return [];
 
@@ -333,16 +1034,17 @@
             const metricCheckboxes = document.querySelectorAll('.metric-cb:checked');
             const selectedMetrics = Array.from(metricCheckboxes).map(cb => cb.value);
 
-            // Získej vybrané sekce
-            const sectionCheckboxes = document.querySelectorAll('.section-cb:checked');
-            const selectedSections = new Set(Array.from(sectionCheckboxes).map(cb => parseInt(cb.value)));
+            // Zjisti, zda jsou vybrány nějaké location filtry (sekce, podlaží, atd.)
+            const hasLocationFilters = hasAnyLocationFilterSelected();
 
-            // Získat vybraná podlaží
-            // Atrea podle selectedAtrea, ThermoPro podle selectedFloors
-            const selectedFloorsSet = typeof selectedFloors !== 'undefined' ? selectedFloors : new Set();
-            const selectedAtreaVal = typeof selectedAtrea !== 'undefined' ? selectedAtrea : true;
+            // Získej vybrané sekce PŘÍMO z DOM checkboxů
+            const sectionCheckboxes = document.querySelectorAll('input[type="checkbox"][data-level="section"]:checked');
+            const selectedSections = new Set(Array.from(sectionCheckboxes).map(cb => String(cb.value)));
 
             const periods = new Set();
+            let processedRows = 0;
+            let filteredRows = 0;
+
             rawData.forEach(row => {
                 const rowMetric = ConfigHelpers.getColumn(row, 'metric');
                 const location = ConfigHelpers.getColumn(row, 'location');
@@ -350,23 +1052,34 @@
 
                 // Použij jen řádky pro vybrané metriky
                 if (!selectedMetrics.includes(rowMetric)) return;
+                processedRows++;
 
-                // Pro ne-ambient metriky filtruj i podle sekce a podlaží
+                // Pro ne-ambient metriky filtruj i podle sekce, podlaží a zdrojů
+                // POUZE pokud jsou vybrány nějaké location filtry
                 const isAmbient = ConfigHelpers.isGlobalMetric(rowMetric);
-                if (!isAmbient) {
+                if (!isAmbient && hasLocationFilters) {
+                    // Sekce je vždy poslední znak location (funguje pro sm2_01, 1NP-1, atd.)
                     const rowSection = parseInt(location.slice(-1));
-                    if (!selectedSections.has(rowSection)) return;
 
-                    // Filtruj podle podlaží
-                    if (ConfigHelpers.isSourceFloor(floor, 'Atrea')) {
-                        if (!selectedAtreaVal) return;
+                    // Pokud není sekce vybraná, řádek se nepočítá (stejně jako v původní verzi)
+                    if (!selectedSections.has(String(rowSection))) return;
+
+                    // Filtruj podle zdroje a podlaží
+                    const source = ConfigHelpers.getSourceByFloor(floor);
+                    if (!source) return;
+
+                    if (source.floors) {
+                        // ThermoPro - MUSÍ být vybráno alespoň jedno podlaží
+                        const floorCode = ConfigHelpers.getFloorCode(location, source);
+                        const selectedItems = getSourceItems(source.key);
+                        if (!floorCode || !selectedItems || selectedItems.size === 0 || !selectedItems.has(floorCode)) return;
                     } else {
-                        // Ostatní zdroje (např. ThermoPro) - získej kód podlaží
-                        const source = ConfigHelpers.getSourceByFloor(floor);
-                        const floorCode = source && source.floors ? location.substring(0, 3) : null;
-                        if (floorCode && !selectedFloorsSet.has(floorCode)) return;
+                        // Simple zdroj (Atrea) - musí být vybrán
+                        if (!isSourceSelected(source.key)) return;
                     }
                 }
+
+                filteredRows++;
 
                 const time = ConfigHelpers.getColumn(row, 'time');
                 const year = time.getFullYear();
@@ -382,7 +1095,36 @@
                 }
             });
 
+            console.log(`getAvailablePeriods: processed=${processedRows}, filtered=${filteredRows}, periods=${periods.size}, metrics=${selectedMetrics.join(',')}, hasLocationFilters=${hasLocationFilters}`);
+            if (periods.size === 0 && processedRows > 0) {
+                console.log('⚠️ Žádné periody nalezeny, ale řádky existují!');
+            }
+
             return Array.from(periods).sort();
+        }
+
+        // Pomocná funkce: zjistí, zda jsou vybrány nějaké location filtry
+        function hasAnyLocationFilterSelected() {
+            // Globální location filtry (sekce) - čti PŘÍMO z DOM
+            const globalLevels = DATASET_CONFIG.locationHierarchy?.global || [];
+            for (const level of globalLevels) {
+                const checkboxes = document.querySelectorAll(`input[type="checkbox"][data-level="${level.key}"]:checked`);
+                if (checkboxes.length > 0) return true;
+            }
+
+            // Source-specific filtry (podlaží)
+            const sources = DATASET_CONFIG.sources || {};
+            for (const [sourceKey, source] of Object.entries(sources)) {
+                if (source.floors) {
+                    const selectedItems = getSourceItems(sourceKey);
+                    if (selectedItems && selectedItems.size > 0) return true;
+                } else {
+                    const selected = isSourceSelected(sourceKey);
+                    if (selected) return true;
+                }
+            }
+
+            return false;
         }
 
         // Získá poslední úplnou periodu v datech
@@ -396,21 +1138,23 @@
 
         // Aktualizuje options v selectu Perioda podle granularity
         // isAdding: true = filtr byl přidán (checkbox zaškrtnut), false/undefined = filtr odebrán nebo jiná změna
-        function updatePeriodOptions(isAdding) {
+        // skipChart: true = nevolat updateChart() na konci
+        // urlPeriod: perioda z URL parametru (použije se když previousPeriod je prázdné)
+        function updatePeriodOptions(isAdding, skipChart = false, urlPeriod = null) {
             const grain = document.getElementById('grain').value;
             const periodSelect = document.getElementById('period');
 
             // Ulož si aktuálně vybranou periodu (před změnou options)
             const previousPeriod = periodSelect.value;
 
-            // Získaj dostupné periody
+            // Získaj dostupné periody - použit aktuální filtr
             const periods = getAvailablePeriods(grain);
 
             // Vymaž existující options
             periodSelect.innerHTML = '';
 
             if (periods.length === 0) {
-                // Žádné periody - přidej placeholder
+                // Žádné periody
                 const option = document.createElement('option');
                 option.value = '';
                 option.textContent = ConfigHelpers.t('noData');
@@ -429,7 +1173,7 @@
             // Rozhodni o periodě:
             // - Při PŘIDÁNÍ filtru (isAdding = true) → vždy ponechat aktuální periodu
             // - Při ODEBRÁNÍ filtru (isAdding = false) → hledat nejbližší minulou periodu s daty
-            // - Při změně granularity (isAdding = undefined) → použít poslední periodu
+            // - Při změně granularity nebo první načtení → respektovat previousPeriod z URL
             let selectedPeriod;
 
             if (isAdding === true && previousPeriod && periods.includes(previousPeriod)) {
@@ -464,13 +1208,23 @@
                     }
                 }
             } else {
-                // Změna granularity nebo první načtení → použij poslední periodu
-                selectedPeriod = periods[periods.length - 1];
+                // Změna granularity nebo první načtení
+                // Priorita: urlPeriod > previousPeriod > poslední perioda
+                const periodFromURL = urlPeriod || previousPeriod;
+
+                if (periodFromURL && periods.includes(periodFromURL)) {
+                    selectedPeriod = periodFromURL;
+                } else {
+                    selectedPeriod = periods[periods.length - 1];
+                }
             }
 
             periodSelect.value = selectedPeriod;
 
-            console.log(`updatePeriodOptions: grain=${grain}, periods=${periods.length}, isAdding=${isAdding}, previous=${previousPeriod}, selected=${selectedPeriod}`);
+            // Aktualizuj graf po změně filtrů (pokud není skipChart)
+            if (!skipChart) {
+                updateChart();
+            }
         }
 
         // Filtruje řádek podle vybrané periody
@@ -511,6 +1265,7 @@
                 if (testFilter) {
                     periodSelect.value = newPeriod;
                     updateChart();
+                    updateURL();
                 } else {
                     updateHeader('ℹ️ ' + ConfigHelpers.t('oldestPeriodReached'));
                 }
@@ -539,6 +1294,7 @@
                 if (testFilter) {
                     periodSelect.value = newPeriod;
                     updateChart();
+                    updateURL();
                 } else {
                     updateHeader('ℹ️ ' + ConfigHelpers.t('newestPeriodReached'));
                 }
@@ -552,8 +1308,9 @@
         function quickFilterDataCheck() {
             if (!rawData) return false;
 
-            const sectionCheckboxes = document.querySelectorAll('.section-cb:checked');
-            const selectedSections = Array.from(sectionCheckboxes).map(cb => parseInt(cb.value));
+            // Získej vybrané sekce PŘÍMO z DOM checkboxů
+            const sectionCheckboxes = document.querySelectorAll('input[type="checkbox"][data-level="section"]:checked');
+            const selectedSections = new Set(Array.from(sectionCheckboxes).map(cb => String(cb.value)));
 
             const metricCheckboxes = document.querySelectorAll('.metric-cb:checked');
             const selectedMetrics = Array.from(metricCheckboxes).map(cb => cb.value);
@@ -567,24 +1324,28 @@
                 const location = ConfigHelpers.getColumn(row, 'location');
                 const rowMetric = ConfigHelpers.getColumn(row, 'metric');
                 const floor = ConfigHelpers.getColumn(row, 'floor');
+                const source = ConfigHelpers.getSourceByFloor(floor);
 
                 // Filtry
                 const isAmbient = ConfigHelpers.isGlobalMetric(rowMetric);
                 if (!selectedMetrics.includes(rowMetric)) continue;
 
                 if (!isAmbient) {
-                    const rowSection = parseInt(location.slice(-1));
-                    if (!selectedSections.includes(rowSection)) continue;
+                    if (!source) continue;
 
-                    if (ConfigHelpers.isSourceFloor(floor, 'Atrea')) {
-                        if (!selectedAtrea) continue;
+                    // Sekce je vždy poslední znak location
+                    const rowSection = parseInt(location.slice(-1));
+                    // Pokud není sekce vybraná, řádek se nepočítá
+                    if (!selectedSections.has(String(rowSection))) continue;
+
+                    // Filtruj podle zdroje a podlaží
+                    if (source.floors) {
+                        const floorCode = ConfigHelpers.getFloorCode(location, source);
+                        const selectedItems = getSourceItems(source.key);
+                        // ThermoPro - MUSÍ být vybráno alespoň jedno podlaží
+                        if (!floorCode || !selectedItems || selectedItems.size === 0 || !selectedItems.has(floorCode)) continue;
                     } else {
-                        // Ostatní zdroje - získej kód podlaží
-                        const source = ConfigHelpers.getSourceByFloor(floor);
-                        if (source && source.floors) {
-                            const floorCode = location.substring(0, 3);
-                            if (!selectedFloors.has(floorCode)) continue;
-                        }
+                        if (!isSourceSelected(source.key)) continue;
                     }
                 }
 
@@ -626,10 +1387,14 @@
                 // Zobraz info o načtení v záhlaví
                 updateHeader(ConfigHelpers.t('dataLoaded', {count: data.length.toLocaleString()}));
 
-                // Inicializuj options pro Perioda podle granularity
-                updatePeriodOptions();
-
-                initHierarchicalSubItems();
+                initDynamicLocationLevels();
+                updateFavoritesDropdown();  // Načti oblíbené do dropdownu
+                loadFiltersFromURL();
+                // Inicializuj options pro Perioda podle granularity PO načtení filtrů z URL
+                // Přečti period parametr z URL pro správné nastavení
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlPeriod = urlParams.get('period');
+                updatePeriodOptions(undefined, true, urlPeriod);
                 updateChart();
             } catch (error) {
                 showError(ConfigHelpers.t('errorLoading', {error: error.message}));
@@ -641,40 +1406,49 @@
         function filterData() {
             if (!rawData) return [];
 
-            // Získej vybrané sekce
-            const sectionCheckboxes = document.querySelectorAll('.section-cb:checked');
-            const selectedSections = Array.from(sectionCheckboxes).map(cb => parseInt(cb.value));
-
             // Získej vybrané metriky
             const metricCheckboxes = document.querySelectorAll('.metric-cb:checked');
             const selectedMetrics = Array.from(metricCheckboxes).map(cb => cb.value);
 
+            // Získej vybrané sekce PŘÍMO z DOM checkboxů
+            const sectionCheckboxes = document.querySelectorAll('input[type="checkbox"][data-level="section"]:checked');
+            const selectedSections = new Set(Array.from(sectionCheckboxes).map(cb => String(cb.value)));
+
             const grain = document.getElementById('grain').value;
             const period = document.getElementById('period').value;
 
-            console.log('Filtruji: sections=' + selectedSections.join(',') + ', metrics=' + selectedMetrics.join(',') + ', grain=' + grain + ', period=' + period);
-            console.log('rawData[0]:', rawData[0]);
-
-            // Struktura dat z hyparquet:
-            // Sloupce definované v DATASET_CONFIG.source.columns:
-            // - time: Date
-            // - location: string - 'sm2_01', '1NP-1', atd.
-            // - floor: string - definuje zdroj (Atrea, ThermoPro, atd.)
-            // - metric: string - 'temp_ambient', 'temp_indoor', atd.
-            // - value: number - hodnota
+            console.log('Filtruji: sections=' + Array.from(selectedSections).join(',') + ', metrics=' + selectedMetrics.join(',') + ', grain=' + grain + ', period=' + period);
 
             const data = rawData.filter(row => {
                 const location = ConfigHelpers.getColumn(row, 'location');
                 const rowMetric = ConfigHelpers.getColumn(row, 'metric');
                 const floor = ConfigHelpers.getColumn(row, 'floor');
+                const source = ConfigHelpers.getSourceByFloor(floor);
 
-                // Sekce je vždy poslední znak názvu lokace
-                const rowSection = parseInt(location.slice(-1));
-
-                // Filtruj podle vybraných sekcí
-                // Pro globální metriky filtr sekce ignoruj
+                // Pro ne-ambient metriky filtruj podle sekce, podlaží a zdrojů
                 const isAmbient = ConfigHelpers.isGlobalMetric(rowMetric);
-                if (!isAmbient && !selectedSections.includes(rowSection)) return false;
+                if (!isAmbient) {
+                    if (!source) return false;
+
+                    // Sekce je vždy poslední znak location (funguje pro sm2_01, 1NP-1, atd.)
+                    const rowSection = parseInt(location.slice(-1));
+                    // Pokud není sekce vybraná, řádek se neukáže (stejně jako v původní verzi)
+                    if (!selectedSections.has(String(rowSection))) {
+                        return false;
+                    }
+
+                    // Filtruj podle zdroje a podlaží
+                    if (source.floors) {
+                        // ThermoPro - MUSÍ být vybráno alespoň jedno podlaží
+                        const selectedItems = getSourceItems(source.key);
+                        const floorCode = ConfigHelpers.getFloorCode(location, source);
+                        if (!floorCode || !selectedItems || selectedItems.size === 0 || !selectedItems.has(floorCode)) {
+                            return false;
+                        }
+                    } else {
+                        if (!isSourceSelected(source.key)) return false;
+                    }
+                }
 
                 // Filtruj podle vybraných metrik
                 if (!selectedMetrics.includes(rowMetric)) return false;
@@ -682,22 +1456,20 @@
                 // Filtruj podle vybrané periody
                 if (!filterByPeriod(row, grain, period)) return false;
 
-                // Filtruj podle vybraných podlaží (pro ne-ambient metriky)
-                if (!isAmbient) {
-                    if (ConfigHelpers.isSourceFloor(floor, 'Atrea')) {
-                        if (!selectedAtrea) return false;
-                    } else {
-                        // Ostatní zdroje - získej kód podlaží
-                        const source = ConfigHelpers.getSourceByFloor(floor);
-                        if (source && source.floors) {
-                            const floorCode = location.substring(0, 3);
-                            if (!selectedFloors.has(floorCode)) return false;
-                        }
-                    }
-                }
-
                 return true;
-            }).map(row => ({
+            });
+
+            // Statistika metrik ve filtrovaných datech
+            const metricCounts = {};
+            data.forEach(row => {
+                const metric = ConfigHelpers.getColumn(row, 'metric');
+                metricCounts[metric] = (metricCounts[metric] || 0) + 1;
+            });
+            console.log(`Filtrováno ${data.length} řádků z ${rawData.length} celkem`);
+            console.log('Počet řádků podle metrik:', metricCounts);
+
+            // Převed filtrovaná data na strukturované objekty
+            const filteredData = data.map(row => ({
                 time: ConfigHelpers.getColumn(row, 'time'),
                 location: ConfigHelpers.getColumn(row, 'location'),
                 floor: ConfigHelpers.getColumn(row, 'floor'),
@@ -708,7 +1480,7 @@
             // Agregace podle granularity - seskupujeme podle location a metriky
             const grouped = new Map();
 
-            data.forEach(row => {
+            filteredData.forEach(row => {
                 let key;
                 if (grain === 'month') {
                     key = new Date(row.time.getFullYear(), row.time.getMonth(), 1);
@@ -798,18 +1570,16 @@
                     const floor = locData[0]?.floor || '';
                     const metricName = ConfigHelpers.getMetricLabel(metricType);
 
-                    // Získej číslo sekce z location
-                    // např. 'sm2_01' -> '1', '1NP-1' -> '1', '1NP-S1' -> '1'
+                    // Zjisti zdroj z configu (generické)
+                    const source = ConfigHelpers.getSourceByFloor(floor);
+
+                    // Získej číslo sekce z location podle zdroje (generické)
                     let sectionNumber = '';
-                    if (loc.startsWith('sm2_')) {
-                        sectionNumber = String(parseInt(loc.substring(4), 10)); // 'sm2_01' -> '1'
-                    } else if (loc.match(/^\d/)) {
-                        // ThermoPro: sekce je za pomlčkou (např. '1NP-1' nebo '1NP-S1')
-                        const parts = loc.split('-');
-                        if (parts.length > 1) {
-                            const sectionPart = parts[1]; // '1' nebo 'S1'
-                            const match = sectionPart.match(/(\d+)/);
-                            sectionNumber = match ? match[1] : '';
+                    if (source) {
+                        sectionNumber = ConfigHelpers.parseSection(loc, source) || '';
+                        // Debug: ověř sectionNumber
+                        if (sectionNumber === '' && loc !== 'ambient') {
+                            console.log('⚠️ Prázdný sectionNumber:', {loc, source: source.key, floor});
                         }
                     }
 
@@ -822,15 +1592,20 @@
                     if (ConfigHelpers.isGlobalMetric(metricType)) {
                         type = 'ambient';
                         label = metricName;
-                    } else if (ConfigHelpers.isSourceFloor(floor, 'Atrea')) {
-                        type = 'Atrea';
-                        label = `Sekce ${sectionNumber} ${metricName}`;
+                    } else if (source) {
+                        // Generická logika podle configu zdroje
+                        type = ConfigHelpers.getSortType(loc, source);
+                        floorCode = source.floors ? ConfigHelpers.getFloorCode(loc, source) : '';
+
+                        if (source.floors) {
+                            label = floorCode ? `${ConfigHelpers.t('section')} ${sectionNumber} ${floorCode} ${metricName}` : `${ConfigHelpers.t('section')} ${sectionNumber} ${metricName}`;
+                        } else {
+                            label = `${ConfigHelpers.t('section')} ${sectionNumber} ${metricName}`;
+                        }
                     } else {
-                        // Ostatní zdroje - získej typ z configu
-                        const source = ConfigHelpers.getSourceByFloor(floor);
-                        type = source ? ConfigHelpers.getSortType(loc, source) : loc;
-                        floorCode = source ? ConfigHelpers.getFloorCode(loc, source) : '';
-                        label = floorCode ? `Sekce ${sectionNumber} ${floorCode} ${metricName}` : `Sekce ${sectionNumber} ${metricName}`;
+                        // Fallback - když zdroj není v configu
+                        type = loc;
+                        label = `${ConfigHelpers.t('section')} ${sectionNumber} ${metricName}`;
                     }
 
                     locsWithLabels.push({
@@ -840,11 +1615,13 @@
                         type,
                         floor,
                         floorCode,
-                        sectionNumber
+                        sectionNumber,
+                        sortPriority: source?.sortPriority || 999  // Pro řazení podle zdroje
                     });
+                    console.log(`Vytvořen label: "${label}" pro loc=${loc}, sectionNumber="${sectionNumber}"`);
                 });
 
-                // Řazení: 1) metrika, 2) sekce, 3) podlaží
+                // Řazení: 1) metrika, 2) sekce, 3) zdroj (podlaží)
                 // Pořadí metrik z configu
                 const metricOrder = ConfigHelpers.getMetricsInOrder().map(m => m.key);
 
@@ -863,9 +1640,13 @@
                         return sectionA - sectionB;
                     }
 
-                    // 3. Řazení podle podlaží (Atrea první, pak NP sestupně, PP vzestupně)
-                    if (a.type === 'Atrea' && b.type !== 'Atrea') return -1;
-                    if (b.type === 'Atrea' && a.type !== 'Atrea') return 1;
+                    // 3. Řazení podle zdroje (podle sortPriority z configu)
+                    if (a.sortPriority !== b.sortPriority) {
+                        return a.sortPriority - b.sortPriority;
+                    }
+
+                    // 4. Řazení podle podlaží (pro stejné zdroje)
+                    // NP sestupně, PP vzestupně (generické podle type)
 
                     if (a.type === 'NP' && b.type === 'PP') return -1;
                     if (b.type === 'NP' && a.type === 'PP') return 1;
@@ -885,7 +1666,13 @@
                     return 0;
                 });
 
-                const timePeriodKeys = [...new Set(currentData.map(d => d.time_period.getTime()))].sort((a, b) => a - b);
+                const timePeriodKeys = [...new Set(currentData.map(d => {
+                    if (!d.time_period) {
+                        console.error('Chybějící time_period:', d);
+                        return null;
+                    }
+                    return d.time_period.getTime();
+                }))].filter(x => x !== null).sort((a, b) => a - b);
 
                 // Získej jedinečné časové periody jako string klíče pro správné porovnání
                 const timePeriodMap = new Map(timePeriodKeys.map(k => [k, new Date(k)]));
@@ -1000,13 +1787,13 @@
                             x: {
                                 title: {
                                     display: true,
-                                    text: 'Čas'
+                                    text: ConfigHelpers.t('time')
                                 }
                             },
                             y: {
                                 title: {
                                     display: true,
-                                    text: 'Teplota (°C)'
+                                    text: ConfigHelpers.t('temperature')
                                 }
                             }
                         },
@@ -1035,39 +1822,48 @@
             const sectionCheckboxes = document.querySelectorAll('.section-cb:checked');
             const selectedSections = Array.from(sectionCheckboxes).map(cb => cb.value);
             const allSectionsCount = DATASET_CONFIG.sections.length;
-            const sectionText = selectedSections.length === allSectionsCount ? 'Všechny' : selectedSections.join(',');
+            const sectionText = selectedSections.length === allSectionsCount ? ConfigHelpers.t('all') : selectedSections.join(',');
 
             // Získej vybrané metriky pro záhlaví
             const metricCheckboxes = document.querySelectorAll('.metric-cb:checked');
             const selectedMetrics = Array.from(metricCheckboxes).map(cb => ConfigHelpers.getMetricLabel(cb.value));
             const metricText = selectedMetrics.join(' + ');
 
-            // Získej vybraná podlaží
-            let sourceText = '';
-            if (selectedAtrea) {
-                sourceText = 'Atrea';
-            }
-            const thermoFloors = Array.from(selectedFloors).sort((a, b) => {
-                const typeA = a.includes('NP') ? 'NP' : 'PP';
-                const typeB = b.includes('NP') ? 'NP' : 'PP';
-                const numA = parseInt(a.replace(/\D/g, '')) || 0;
-                const numB = parseInt(b.replace(/\D/g, '')) || 0;
+            // Získej vybrané zdroje (generické)
+            const sourceParts = [];
+            const sources = DATASET_CONFIG.sources || {};
 
-                if (typeA !== typeB) return typeA === 'NP' ? -1 : 1;
-                if (typeA === 'NP') return numB - numA; // NP sestupně
-                return numA - numB; // PP vzestupně
+            Object.values(sources).forEach(source => {
+                if (source.floors) {
+                    // Hierarchický zdroj - zobraz vybrané položky
+                    const selectedItems = getSourceItems(source.key);
+                    if (selectedItems && selectedItems.size > 0) {
+                        const items = Array.from(selectedItems).sort((a, b) => {
+                            // Zachováť původní řazení (NP sestupně, PP vzestupně)
+                            const typeA = a.includes('NP') ? 'NP' : 'PP';
+                            const typeB = b.includes('NP') ? 'NP' : 'PP';
+                            const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                            const numB = parseInt(b.replace(/\D/g, '')) || 0;
+
+                            if (typeA !== typeB) return typeA === 'NP' ? -1 : 1;
+                            if (typeA === 'NP') return numB - numA;
+                            return numA - numB;
+                        });
+                        sourceParts.push(items.map(i => `${source.label} ${i}`).join(', '));
+                    }
+                } else {
+                    // Simple zdroj
+                    if (isSourceSelected(source.key)) {
+                        sourceParts.push(source.label);
+                    }
+                }
             });
-            if (thermoFloors.length > 0) {
-                if (sourceText) sourceText += ', ';
-                sourceText += thermoFloors.map(f => 'ThermoPro ' + f).join(', ');
-            }
-            if (!sourceText) {
-                sourceText = 'Žádná';
-            }
 
-            let headerText = `Sekce ${sectionText} • ${metricText} • ${grainText} • Perioda ${period}`;
-            if (sourceText !== 'Všechny') {
-                headerText += ` • Zdroj ${sourceText}`;
+            const sourceText = sourceParts.length > 0 ? sourceParts.join(', ') : ConfigHelpers.t('none');
+
+            let headerText = `${ConfigHelpers.t('section')} ${sectionText} • ${metricText} • ${grainText} • ${ConfigHelpers.t('period')} ${period}`;
+            if (sourceText !== ConfigHelpers.t('none')) {
+                headerText += ` • ${ConfigHelpers.t('source')} ${sourceText}`;
             }
             if (message) {
                 headerText += ` (${message})`;
@@ -1080,23 +1876,42 @@
             updateHeader(`❌ ${message}`);
         }
 
+        // Start - Inicializuj UI z configu před načtením dat
+        initUIFromConfig();
+
         // Při změně granularity aktualizuj options period a překresli graf
         document.getElementById('grain').addEventListener('change', () => {
             updatePeriodOptions();
             updateChart();
+            updateURL();
         });
 
-        document.getElementById('period').addEventListener('change', updateChart);
-        document.getElementById('view-mode').addEventListener('change', updateChart);
+        document.getElementById('period').addEventListener('change', () => {
+            updateChart();
+            updateURL();
+        });
+        document.getElementById('view-mode').addEventListener('change', () => {
+            updateChart();
+            updateURL();
+        });
 
-        // Start - Inicializuj UI z configu před načtením dat
-        initUIFromConfig();
+        // Při změně jazyka reload stránky s novým configem
+        const languageSelect = document.getElementById('language');
+        if (languageSelect) {
+            languageSelect.addEventListener('change', (e) => {
+                changeLanguage(e.target.value);
+            });
+        }
 
         // Export funkcí pro globální přístup z HTML onclick
         window.priorPeriod = priorPeriod;
         window.nextPeriod = nextPeriod;
 
         loadData();
+        } // Konec initApp()
+
+        // Spusť aplikaci - načti config a inicializuj
+        loadConfig();
     </script>
 </body>
 </html>

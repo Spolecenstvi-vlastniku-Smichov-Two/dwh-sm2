@@ -15,103 +15,8 @@ export const DATASET_CONFIG = {
       time: 0,      // Date
       location: 1,  // string - 'sm2_01', '1NP-1', atd.
       floor: 2,     // string - 'Atrea', 'ThermoPro'
-      type: 3,      // string - 'additive', 'nonadditive' (nový sloupec!)
       metric: 4,    // string - 'temp_indoor', 'temp_ambient', atd.
       value: 5      // number - hodnota
-    }
-  },
-
-  // UI Konfigurace
-  ui: {
-    header: {
-      title: '🏠 SM2 Průzkumník Teplot',
-      subtitle: 'Apache Arrow.js + Chart.js • Parquet přímo v browseru'
-    },
-    // První panel - časové ovládání
-    timeControls: [
-      {
-        id: 'language',
-        label: 'Jazyk',
-        type: 'select',
-        options: [
-          { value: 'cz', label: 'Čeština' },
-          { value: 'en', label: 'English' }
-        ]
-      },
-      {
-        id: 'view-mode',
-        label: 'Zobrazení',
-        type: 'select',
-        configKey: 'viewModes'
-      },
-      {
-        id: 'grain',
-        label: 'Granularita',
-        type: 'select',
-        configKey: 'granularity'
-      },
-      {
-        id: 'period',
-        label: 'Perioda',
-        type: 'select',
-        dynamic: true  // Naplňuje se dynamicky podle dat
-      }
-    ],
-    // Navigační tlačítka (v panelu filtrů)
-    navButtons: [
-      {
-        id: 'btn-prev',
-        label: '◀ Zpět',
-        class: 'indigo',
-        action: 'priorPeriod'
-      },
-      {
-        id: 'btn-next',
-        label: 'Vpřed ▶',
-        class: 'green',
-        action: 'nextPeriod'
-      }
-    ],
-    // Akční tlačítka (v headeru)
-    actionButtons: [
-      {
-        id: 'btn-copy-url',
-        label: '🔗 URL',
-        class: 'blue',
-        action: 'copyShareURL'
-      },
-      {
-        id: 'btn-save-favorite',
-        label: '⭐ Uložit',
-        class: 'yellow',
-        action: 'saveFavorite'
-      },
-      {
-        id: 'btn-clear',
-        label: '🔄 Vyčistit',
-        class: 'red',
-        action: 'clearFilters'
-      }
-    ],
-    // Dropdown pro oblíbené filtry
-    favoritesDropdown: {
-      id: 'favorites-select',
-      label: 'Oblíbené',
-      emptyLabel: '-- Vyber oblíbené --',
-      showDelete: true
-    }
-  },
-
-  // Definice stavových proměnných pro filtry
-  filterState: {
-    // Hierarchické filtry (zdroje s podlažími/podkategoriemi)
-    hierarchical: {
-      // Klíč = zdroj, hodnota = stav
-      // 'simple' = boolean, 'hierarchical' = array
-      sources: {
-        Atrea: { type: 'simple', default: true },
-        ThermoPro: { type: 'hierarchical', default: [] }
-      }
     }
   },
 
@@ -159,8 +64,7 @@ export const DATASET_CONFIG = {
       floorValue: 'Atrea',
       // Parsování sekce z location (např. 'sm2_01' -> '1')
       locationPrefix: 'sm2',
-      locationSeparator: '_',
-      sectionParse: 'after_separator',  // sekce je za oddělovačem (sm2_01 -> 1)
+      sectionParse: 'after_prefix',  // sekce je za prefixem (sm2_01 -> 1)
       // Řazení
       sortType: 'Atrea',
       sortPriority: 1  // Atrea první
@@ -184,119 +88,39 @@ export const DATASET_CONFIG = {
     }
   },
 
-  // ===== LOCATION HIERARCHIE =====
-  // Definuje hierarchii location filtrů - může být globální i specifická pro zdroje
-  locationHierarchy: {
-    // Globální úrovně - společné pro všechny zdroje
-    global: [
-      {
-        key: 'section',
-        label: 'Sekce',
-        type: 'checkboxes',
-        checkboxClass: 'section-cb',
-        // Jak parsovat hodnotu z location stringu
-        parseFrom: {
-          method: 'suffix',     // poslední znak location
-          length: 1
-        },
-        items: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-        itemLabel: (value) => String(value),
-        default: []
-      }
-    ],
-    // Specifické úrovně pro jednotlivé zdroje
-    sources: {
-      ThermoPro: [
-        {
-          key: 'floor',
-          label: 'Podlaží',
-          type: 'checkboxes',
-          checkboxClass: 'floor-cb',
-          // Jak parsovat hodnotu z location stringu
-          parseFrom: {
-            method: 'prefix',    // první 3 znaky location
-            length: 3
-          },
-          items: 'dynamic',  // Zjistí se dynamicky z dat
-          itemLabel: (value) => String(value),
-          default: [],
-          // Filtr pro validaci hodnot (pouze NP/PP)
-          itemFilter: (value) => value.includes('NP') || value.includes('PP'),
-          // Vlastní řazení: NP před PP, v rámci NP sestupně, v rámci PP vzestupně
-          customSort: (a, b) => {
-            const getPrefix = (s) => parseInt(s.slice(0, -2)) || 0;
-            const getSuffix = (s) => s.slice(-2);
-
-            const suffixA = getSuffix(a);
-            const suffixB = getSuffix(b);
-
-            // NP před PP
-            if (suffixA !== suffixB) {
-              return suffixA === 'NP' ? -1 : 1;
-            }
-
-            // Stejný suffix - řadit podle čísla
-            // Pro NP sestupně, pro PP vzestupně
-            if (suffixA === 'NP') {
-              return getPrefix(b) - getPrefix(a);
-            } else {
-              return getPrefix(a) - getPrefix(b);
-            }
-          }
-        }
-      ]
-    }
-  },
-
-  // ===== METRIKY =====
-  // Definice metrik - oddělené od location hierarchie
-  metrics: {
-    temp_indoor: {
-      label: 'vnitřní',
-      order: 1,
-      global: false
-    },
-    temp_ambient: {
-      label: 'venkovní',
-      order: 2,
-      global: true,           // Ignoruje filtr sekcí
-      aggregateLocation: true // Sloučí všechny lokace do jedné
-    },
-    temp_fresh: {
-      label: 'čerstvý',
-      order: 3,
-      global: false
-    },
-    temp_intake: {
-      label: 'sací',
-      order: 4,
-      global: false
-    },
-    temp_waste: {
-      label: 'odpadní',
-      order: 5,
-      global: false
-    }
-  },
-
-  // Filtry - generuje UI (metadata, metrics, sources)
+  // Definice filtrů - generuje UI filtrů
   filters: [
+    {
+      key: 'sections',
+      label: 'Sekce',
+      type: 'checkboxes',
+      checkboxClass: 'section-cb',
+      items: [1, 2, 3, 4, 5, 6, 7, 8, 9],  // Pole hodnot
+      itemLabel: (value) => String(value),  // Jak získat label z hodnoty
+      default: 'all'  // 'all' = všechno vybráno
+    },
     {
       key: 'metrics',
       label: 'Metriky',
       type: 'checkboxes',
       checkboxClass: 'metric-cb',
-      configKey: 'metrics',  // Odkaz na DATASET_CONFIG.metrics
+      items: {  // Objekt s konfigurací
+        temp_indoor: { label: 'vnitřní', global: false },
+        temp_ambient: { label: 'venkovní', global: true },
+        temp_fresh: { label: 'čerstvý', global: false },
+        temp_intake: { label: 'sací', global: false },
+        temp_waste: { label: 'odpadní', global: false }
+      },
       itemLabel: (key, config) => config.label,
       default: (items) => Object.keys(items).filter(k => items[k].global)
     },
     {
       key: 'sources',
       label: 'Zdroje',
-      type: 'hierarchical',
+      type: 'hierarchical',  // Zanořené filtry (zdroj → podlaží)
       checkboxClass: 'source-cb',
-      sourceConfig: 'sources',
-      default: { Atrea: true, ThermoPro: [] }
+      sourceConfig: 'sources',  // Odkaz na DATASET_CONFIG.sources
+      default: { Atrea: true, ThermoPro: [] }  // Atrea zaškrtnuto, ThermoPro nic
     }
   ],
 
@@ -364,24 +188,7 @@ export const DATASET_CONFIG = {
     oldestPeriodReached: 'Aktuálně vybraná perioda je nejstarší dostupná pro daný výběr dat.',
     newestPeriodReached: 'Aktuálně vybraná perioda je nejnovější dostupná pro daný výběr dat.',
     errorLoading: 'Chyba při načítání dat: {error}',
-    errorNoData: 'Pro zadané filtry nebyla nalezena žádná data.',
-    // URL a oblíbené
-    copiedToClipboard: '✓ Zkopírováno!',
-    favoriteSaved: '✓ Uloženo!',
-    favoriteNamePrompt: 'Název oblíbeného filtru:',
-    deleteFavoriteConfirm: 'Smazat tento oblíbený filtr?',
-    deleteFavoriteNamedConfirm: 'Smazat oblíbený filtr "{name}"?',
-    favoriteDeleteIcon: '🗑️',
-    favoriteDeleteTitle: 'Smazat vybraný oblíbený filtr',
-    selectFavoritePlaceholder: '-- Vyber oblíbené --',
-    // UI texty
-    section: 'Sekce',
-    period: 'Perioda',
-    source: 'Zdroj',
-    all: 'Všechny',
-    none: 'Žádná',
-    temperature: 'Teplota (°C)',
-    time: 'čas'
+    errorNoData: 'Pro zadané filtry nebyla nalezena žádná data.'
   }
 };
 
@@ -489,75 +296,6 @@ export const ConfigHelpers = {
     }
 
     return source.sortType || location;
-  },
-
-  // ===== LOCATION HIERARCHIE HELPERS =====
-
-  // Získat všechny location levely (globální + pro daný zdroj)
-  getLocationLevels(sourceKey = null) {
-    const levels = [];
-
-    // Globální úrovně
-    if (DATASET_CONFIG.locationHierarchy?.global) {
-      levels.push(...DATASET_CONFIG.locationHierarchy.global);
-    }
-
-    // Specifické úrovně pro zdroj
-    if (sourceKey && DATASET_CONFIG.locationHierarchy?.sources?.[sourceKey]) {
-      levels.push(...DATASET_CONFIG.locationHierarchy.sources[sourceKey]);
-    }
-
-    return levels;
-  },
-
-  // Parsovat hodnotu location levelu z location stringu
-  parseLocationLevel(location, levelConfig, source) {
-    if (!levelConfig.parseFrom) return null;
-
-    const { method, length, separator } = levelConfig.parseFrom;
-
-    switch (method) {
-      case 'suffix':
-        // Posledních N znaků
-        return location.slice(-length);
-      case 'prefix':
-        // Prvních N znaků
-        return location.substring(0, length);
-      case 'after_separator':
-        // Za separátorem
-        if (separator) {
-          const parts = location.split(separator);
-          if (parts.length > 1) return parts[1];
-        }
-        return null;
-      case 'after_prefix':
-        // Za prefixem (např. 'sm2_01' -> '01')
-        if (source?.locationPrefix) {
-          const prefix = source.locationPrefix;
-          if (location.startsWith(prefix)) {
-            return location.substring(prefix.length);
-          }
-        }
-        return null;
-      default:
-        return null;
-    }
-  },
-
-  // Získat location levely pro daný řádek (source + location)
-  getRowLocationLevels(row, sourceKey) {
-    const location = this.getColumn(row, 'location');
-    const levels = this.getLocationLevels(sourceKey);
-    const result = {};
-
-    levels.forEach(level => {
-      const value = this.parseLocationLevel(location, level, DATASET_CONFIG.sources[sourceKey]);
-      if (value !== null) {
-        result[level.key] = value;
-      }
-    });
-
-    return result;
   },
 
   // Získání filtrů

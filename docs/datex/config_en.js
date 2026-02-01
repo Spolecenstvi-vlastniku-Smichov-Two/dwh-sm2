@@ -1,9 +1,9 @@
-// Data Explorer Configuration
+// Data Explorer Configuration (English)
 // Jednoduchý konfigurační objekt pro definici datasetu a chování aplikace
 
 export const DATASET_CONFIG = {
   // Metadata o datasetu
-  name: 'SM2 Teploty',
+  name: 'SM2 Temperatures',
   version: '1.0.0',
 
   // Definice datového zdroje
@@ -13,10 +13,10 @@ export const DATASET_CONFIG = {
     // Mapování sloupců z Parquetu
     columns: {
       time: 0,      // Date
-      location: 1,  // string - 'sm2_01', '1NP-1', atd.
+      location: 1,  // string - 'sm2_01', '1NP-1', etc.
       floor: 2,     // string - 'Atrea', 'ThermoPro'
       type: 3,      // string - 'additive', 'nonadditive' (nový sloupec!)
-      metric: 4,    // string - 'temp_indoor', 'temp_ambient', atd.
+      metric: 4,    // string - 'temp_indoor', 'temp_ambient', etc.
       value: 5      // number - hodnota
     }
   },
@@ -24,14 +24,14 @@ export const DATASET_CONFIG = {
   // UI Konfigurace
   ui: {
     header: {
-      title: '🏠 SM2 Průzkumník Teplot',
-      subtitle: 'Apache Arrow.js + Chart.js • Parquet přímo v browseru'
+      title: '🏠 SM2 Temperature Explorer',
+      subtitle: 'Apache Arrow.js + Chart.js • Parquet directly in browser'
     },
     // První panel - časové ovládání
     timeControls: [
       {
         id: 'language',
-        label: 'Jazyk',
+        label: 'Language',
         type: 'select',
         options: [
           { value: 'cz', label: 'Čeština' },
@@ -40,19 +40,19 @@ export const DATASET_CONFIG = {
       },
       {
         id: 'view-mode',
-        label: 'Zobrazení',
+        label: 'View',
         type: 'select',
         configKey: 'viewModes'
       },
       {
         id: 'grain',
-        label: 'Granularita',
+        label: 'Granularity',
         type: 'select',
         configKey: 'granularity'
       },
       {
         id: 'period',
-        label: 'Perioda',
+        label: 'Period',
         type: 'select',
         dynamic: true  // Naplňuje se dynamicky podle dat
       }
@@ -61,13 +61,13 @@ export const DATASET_CONFIG = {
     navButtons: [
       {
         id: 'btn-prev',
-        label: '◀ Zpět',
+        label: '◀ Back',
         class: 'indigo',
         action: 'priorPeriod'
       },
       {
         id: 'btn-next',
-        label: 'Vpřed ▶',
+        label: 'Forward ▶',
         class: 'green',
         action: 'nextPeriod'
       }
@@ -82,13 +82,13 @@ export const DATASET_CONFIG = {
       },
       {
         id: 'btn-save-favorite',
-        label: '⭐ Uložit',
+        label: '⭐ Save',
         class: 'yellow',
         action: 'saveFavorite'
       },
       {
         id: 'btn-clear',
-        label: '🔄 Vyčistit',
+        label: '🔄 Clear',
         class: 'red',
         action: 'clearFilters'
       }
@@ -96,8 +96,8 @@ export const DATASET_CONFIG = {
     // Dropdown pro oblíbené filtry
     favoritesDropdown: {
       id: 'favorites-select',
-      label: 'Oblíbené',
-      emptyLabel: '-- Vyber oblíbené --',
+      label: 'Favorites',
+      emptyLabel: '-- Select favorite --',
       showDelete: true
     }
   },
@@ -118,28 +118,28 @@ export const DATASET_CONFIG = {
   // Definice metrik - řídí filter UI a chování
   metrics: {
     temp_indoor: {
-      label: 'vnitřní',
+      label: 'indoor',
       order: 1,
       global: false
     },
     temp_ambient: {
-      label: 'venkovní',
+      label: 'outdoor',
       order: 2,
       global: true,           // Ignoruje filtr sekcí
       aggregateLocation: true // Sloučí všechny lokace do jedné
     },
     temp_fresh: {
-      label: 'čerstvý',
+      label: 'fresh',
       order: 3,
       global: false
     },
     temp_intake: {
-      label: 'sací',
+      label: 'intake',
       order: 4,
       global: false
     },
     temp_waste: {
-      label: 'odpadní',
+      label: 'waste',
       order: 5,
       global: false
     }
@@ -153,7 +153,7 @@ export const DATASET_CONFIG = {
     Atrea: {
       key: 'Atrea',
       label: 'Atrea',
-      checkboxLabel: 'Zobrazit Atrea',
+      checkboxLabel: 'Show Atrea',
       default: true,
       // Detekce: řádek patří tomuto zdroji když floor === 'Atrea'
       floorValue: 'Atrea',
@@ -191,7 +191,7 @@ export const DATASET_CONFIG = {
     global: [
       {
         key: 'section',
-        label: 'Sekce',
+        label: 'Section',
         type: 'checkboxes',
         checkboxClass: 'section-cb',
         // Jak parsovat hodnotu z location stringu
@@ -209,7 +209,7 @@ export const DATASET_CONFIG = {
       ThermoPro: [
         {
           key: 'floor',
-          label: 'Podlaží',
+          label: 'Floors',
           type: 'checkboxes',
           checkboxClass: 'floor-cb',
           // Jak parsovat hodnotu z location stringu
@@ -252,28 +252,28 @@ export const DATASET_CONFIG = {
   // Definice metrik - oddělené od location hierarchie
   metrics: {
     temp_indoor: {
-      label: 'vnitřní',
+      label: 'indoor',
       order: 1,
       global: false
     },
     temp_ambient: {
-      label: 'venkovní',
+      label: 'outdoor',
       order: 2,
       global: true,           // Ignoruje filtr sekcí
       aggregateLocation: true // Sloučí všechny lokace do jedné
     },
     temp_fresh: {
-      label: 'čerstvý',
+      label: 'fresh',
       order: 3,
       global: false
     },
     temp_intake: {
-      label: 'sací',
+      label: 'intake',
       order: 4,
       global: false
     },
     temp_waste: {
-      label: 'odpadní',
+      label: 'waste',
       order: 5,
       global: false
     }
@@ -283,7 +283,7 @@ export const DATASET_CONFIG = {
   filters: [
     {
       key: 'metrics',
-      label: 'Metriky',
+      label: 'Metrics',
       type: 'checkboxes',
       checkboxClass: 'metric-cb',
       configKey: 'metrics',  // Odkaz na DATASET_CONFIG.metrics
@@ -292,7 +292,7 @@ export const DATASET_CONFIG = {
     },
     {
       key: 'sources',
-      label: 'Zdroje',
+      label: 'Sources',
       type: 'hierarchical',
       checkboxClass: 'source-cb',
       sourceConfig: 'sources',
@@ -302,9 +302,9 @@ export const DATASET_CONFIG = {
 
   // Definice granularity - řídí select
   granularity: [
-    { value: 'month', label: 'měsíční' },
-    { value: 'day', label: 'denní' },
-    { value: 'hour', label: 'hodinová' }
+    { value: 'month', label: 'monthly' },
+    { value: 'day', label: 'daily' },
+    { value: 'hour', label: 'hourly' }
   ],
 
   // Režimy zobrazení
@@ -350,38 +350,38 @@ export const DATASET_CONFIG = {
       onGranularityChange: 'last'    // Při změně granularity - poslední
     },
     // Formát záhlaví
-    headerFormat: '{sections} • {metrics} • {granularity} • Perioda {period} • Zdroj {sources}'
+    headerFormat: '{sections} • {metrics} • {granularity} • Period {period} • Sources {sources}'
   },
 
   // Lokalizace
   i18n: {
-    month: 'měsíční',
-    day: 'denní',
-    hour: 'hodinová',
-    noData: 'Žádná data',
-    noDataInHistory: 'Pro aktuální filtr neexistují žádná data v dostupné historii.',
-    dataLoaded: 'Data načtena! {count} řádků.',
-    oldestPeriodReached: 'Aktuálně vybraná perioda je nejstarší dostupná pro daný výběr dat.',
-    newestPeriodReached: 'Aktuálně vybraná perioda je nejnovější dostupná pro daný výběr dat.',
-    errorLoading: 'Chyba při načítání dat: {error}',
-    errorNoData: 'Pro zadané filtry nebyla nalezena žádná data.',
+    month: 'monthly',
+    day: 'daily',
+    hour: 'hourly',
+    noData: 'No data',
+    noDataInHistory: 'No data available for the current filter in history.',
+    dataLoaded: 'Data loaded! {count} rows.',
+    oldestPeriodReached: 'Currently selected period is the oldest available for the selected data.',
+    newestPeriodReached: 'Currently selected period is the newest available for the selected data.',
+    errorLoading: 'Error loading data: {error}',
+    errorNoData: 'No data found for the specified filters.',
     // URL a oblíbené
-    copiedToClipboard: '✓ Zkopírováno!',
-    favoriteSaved: '✓ Uloženo!',
-    favoriteNamePrompt: 'Název oblíbeného filtru:',
-    deleteFavoriteConfirm: 'Smazat tento oblíbený filtr?',
-    deleteFavoriteNamedConfirm: 'Smazat oblíbený filtr "{name}"?',
+    copiedToClipboard: '✓ Copied!',
+    favoriteSaved: '✓ Saved!',
+    favoriteNamePrompt: 'Favorite filter name:',
+    deleteFavoriteConfirm: 'Delete this favorite filter?',
+    deleteFavoriteNamedConfirm: 'Delete favorite filter "{name}"?',
     favoriteDeleteIcon: '🗑️',
-    favoriteDeleteTitle: 'Smazat vybraný oblíbený filtr',
-    selectFavoritePlaceholder: '-- Vyber oblíbené --',
+    favoriteDeleteTitle: 'Delete selected favorite',
+    selectFavoritePlaceholder: '-- Select favorite --',
     // UI texty
-    section: 'Sekce',
-    period: 'Perioda',
-    source: 'Zdroj',
-    all: 'Všechny',
-    none: 'Žádná',
-    temperature: 'Teplota (°C)',
-    time: 'čas'
+    section: 'Section',
+    period: 'Period',
+    source: 'Sources',
+    all: 'All',
+    none: 'None',
+    temperature: 'Temperature (°C)',
+    time: 'time'
   }
 };
 
@@ -416,7 +416,7 @@ export const ConfigHelpers = {
     return DATASET_CONFIG.metrics[metric]?.label || metric;
   },
 
-  // Získání názvu granularity v češtině
+  // Získání názvu granularity v angličtině
   getGranularityLabel(value) {
     const item = DATASET_CONFIG.granularity.find(g => g.value === value);
     return item?.label || value;
