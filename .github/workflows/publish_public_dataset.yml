@@ -2,8 +2,7 @@ name: Publish Public Dataset
 
 on:
   schedule:
-    # každý týden v pondělí v 03:10 CET (Prague je CET/CEST; GitHub cron je v UTC, přizpůsob si)
-    - cron: "10 2 * * 6"
+    - cron: "30 1 * * *"
   workflow_dispatch:
 
 jobs:
