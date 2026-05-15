@@ -167,11 +167,11 @@ jobs:
             rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
           fi
                 
-                # 2. ČÁST: Archivace Indoor senzorů (vše ostatní CSV)
-                # Hledáme jakékoli CSV, které NEMÁ v názvu 'Graph'
-                # Tím pokryjeme TempPro, ThermoPro i jakékoli budoucí jmenné konvence
-                if find ./latest -maxdepth 1 -type f -name '*.csv' ! -name 'Graph*' | grep -q .; then
-                  echo "📂 Soubory vnitřních senzorů (CSV) nalezeny, provádím archivaci."
-                  rclone copyto sm2drive:Indoor/Latest/Upload sm2drive:Indoor/Archiv/${TIMESTAMP}/
-                  rclone purge sm2drive:Indoor/Latest/Upload && rclone mkdir sm2drive:Indoor/Latest/Upload
-                fi
+          # 2. ČÁST: Archivace Indoor senzorů (vše ostatní CSV)
+          # Hledáme jakékoli CSV, které NEMÁ v názvu 'Graph'
+          # Tím pokryjeme TempPro, ThermoPro i jakékoli budoucí jmenné konvence
+          if find ./latest -maxdepth 1 -type f -name '*.csv' ! -name 'Graph*' | grep -q .; then
+            echo "📂 Soubory vnitřních senzorů (CSV) nalezeny, provádím archivaci."
+            rclone copyto sm2drive:Indoor/Latest/Upload sm2drive:Indoor/Archiv/${TIMESTAMP}/
+            rclone purge sm2drive:Indoor/Latest/Upload && rclone mkdir sm2drive:Indoor/Latest/Upload
+          fi
