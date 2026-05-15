@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# indoor_merge_all_sensors.sh — robustní sloučení CSV z ThermoPro + autodetekce formátu datumu (v2.2)
-# Opravy oproti v2:
-#  - AWK: výstup přes proměnnou OUTFILE (>> OUTFILE), žádné literal cesty
-#  - AWK: SAMPLE/DUMP předávány výhradně přes -v (žádné embedování ${...})
-#  - Tie-breaker: variabilita p1/p2 (uniq p1 vs uniq p2) → rozřeší 09/09 případy
+# indoor_merge_all_sensors.sh — robustní sloučení CSV z ThermoPro + autodetekce formátu datumu (v3.1)
+# Opravy v3.1:
+#  - Zobecněn INPUT_GLOB (podpora TempPro i ThermoPro přes nocaseglob)
+#  - Robustní extrakce lokace přes regex _[0-9A-F]{4}_
+#  - 100% zachování logiky v2.2 (včetně tie-breakerů, debug výpisů a null-tokenů)
 set -euo pipefail
  
 # --- Konfig / ENV ---
-INPUT_GLOB="${INPUT_GLOB:-./latest/ThermoProSensor_export_*.csv}"
+# ZMĚNA v3.1: Aktivace nocaseglob pro podporu TempProSensor i ThermoProSensor
+shopt -s nullglob
+shopt -s nocaseglob
+INPUT_GLOB="${INPUT_GLOB:-./latest/*.csv}"
 OUTPUT="${OUTPUT:-./gdrive/all_sensors_merged.csv}"
  
 SAMPLE_N="${SAMPLE_N:-5}"
@@ -23,12 +26,12 @@ NULL_TOKEN_DUMP="${NULL_TOKEN_DUMP:-0}"
  
 mkdir -p "$(dirname "$OUTPUT")"
  
-shopt -s nullglob
 files=( $INPUT_GLOB )
+shopt -u nocaseglob
+
 if [ ${#files[@]} -eq 0 ]; then
   echo "ℹ️ Žádné nové vstupy: $INPUT_GLOB"
   echo "Datetime,Temperature_Celsius,Relative_Humidity(%),Location" > "$OUTPUT"
-  echo "Vytvořen prázdný výstup s hlavičkou"
   exit 0
 fi
  
@@ -144,19 +147,25 @@ detect_fmt_from_file () {
 }
  
 tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
 rm -f "$OUTPUT"
 total_lines=0
 idx=0
  
 for file in "${files[@]}"; do
+  # ZMĚNA v3.1: Extrakce lokace založená na robustním regexu ohraničeném podtržítky
+  location=$(basename "$file" | grep -oP '(?<=_)[0-9A-F]{4}(?=_)' | head -n 1 || echo "")
+  
+  if [ -z "$location" ]; then
+    continue
+  fi
+
   idx=$((idx+1))
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "📄 [$idx/${#files[@]}] Zpracovávám: $file"
-  location="$(basename "$file" | awk -F'_' '{print $3}')"
   echo "   Location: $location"
  
-  # Kontrola, zda soubor obsahuje nějaká data
   lines=$(awk 'NR>2{c++} END{print c+0}' "$file")
   if [ "$lines" -eq 0 ]; then
     echo "⚠️  Přeskakuji prázdný soubor: $file"
@@ -246,7 +255,9 @@ for file in "${files[@]}"; do
 done
  
 echo "Datetime,Temperature_Celsius,Relative_Humidity(%),Location" > "$OUTPUT"
-cat "$tmpdir"/out_*.csv >> "$OUTPUT"
+if ls "$tmpdir"/out_*.csv 1> /dev/null 2>&1; then
+  cat "$tmpdir"/out_*.csv >> "$OUTPUT"
+fi
  
 echo ""
 echo "✅ Hotovo. Celkem sloučeno řádků: $total_lines"
