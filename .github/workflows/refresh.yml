@@ -157,15 +157,15 @@ jobs:
         continue-on-error: true
 
       - run: |
-                TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-                
-                # 1. ČÁST: Archivace Vzduchotechniky (VZT)
-                # Hledáme specifické soubory začínající na 'Graph'
-                if find ./latest -maxdepth 1 -type f -name 'Graph*' | grep -q .; then
-                  echo "📂 Soubory vzduchotechniky (Graph*) nalezeny, provádím archivaci."
-                  rclone copyto sm2drive:Vzduchotechnika/Latest/Upload sm2drive:Vzduchotechnika/Archiv/${TIMESTAMP}/
-                  rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
-                fi
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          
+          # 1. ČÁST: Archivace Vzduchotechniky (VZT)
+          # Hledáme specifické soubory začínající na 'Graph'
+          if find ./latest -maxdepth 1 -type f -name 'Graph*' | grep -q .; then
+            echo "📂 Soubory vzduchotechniky (Graph*) nalezeny, provádím archivaci."
+            rclone copyto sm2drive:Vzduchotechnika/Latest/Upload sm2drive:Vzduchotechnika/Archiv/${TIMESTAMP}/
+            rclone purge sm2drive:Vzduchotechnika/Latest/Upload && rclone mkdir sm2drive:Vzduchotechnika/Latest/Upload
+          fi
                 
                 # 2. ČÁST: Archivace Indoor senzorů (vše ostatní CSV)
                 # Hledáme jakékoli CSV, které NEMÁ v názvu 'Graph'
