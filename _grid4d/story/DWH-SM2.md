@@ -3,7 +3,7 @@
 > SM2 building data warehouse - sensor evidence base for the overheating complaint of the apartment building (ČSN 730540-2)
 
 **Type:** Epic
-**Inherits:** none (root)
+**Inherits:** EVOLUCEAN
 **Remote:** https://github.com/Spolecenstvi-vlastniku-Smichov-Two/dwh-sm2.git
 **Branch:** main
 **Merge:** true
