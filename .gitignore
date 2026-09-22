@@ -52,6 +52,7 @@ gdrive/
 latest/
 Data         # Symlink to Google Drive Shared Drive
 *.csv
+!analysis/*.csv
 **/*.duckdb
 **/*.duckdb.wal
 *.zip
