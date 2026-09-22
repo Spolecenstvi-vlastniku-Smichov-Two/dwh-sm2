@@ -19,6 +19,7 @@ Founding a new Epic happens rarely and the procedure existed only as tribal memo
 6. **Fill the identity in the story worktree**: Overview + Vision (Human supplies the vision - it is the epic's reason to exist, never a TODO), declare `**StoryPrefix:** <PREFIX>-`, set `**Inherits:** <root-epic>` (the scaffold's `none (root)` is false for a new Epic), write story requirements.
 7. **Verify**: `knowledge-usage doctor` - the StoryPrefix warning clears once the story merges (doctor reads the canonical tree).
 8. **Complete the story** (merge brings vision + prefix to main), then push.
+   - Until [multidash-prefix-epic-resolution](../issue/multidash-prefix-epic-resolution.md) is fixed: for a multi-dash prefix, ff-merge the story branch to main **before** `story complete`, so the canonical tree carries the `**StoryPrefix:**` declaration the epic resolution needs.
 
 ## How pattern inheritance actually works (verified in code, 2026-09-22)
 

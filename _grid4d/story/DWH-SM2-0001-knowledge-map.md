@@ -23,3 +23,4 @@
 - [epic-founding-procedure](epic-founding-procedure) (Entry)
 - [epic-init-inherits-root-default](epic-init-inherits-root-default) (Entry)
 - [DWH-SM2-0001-tests](DWH-SM2-0001-tests) (Check)
+- [multidash-prefix-epic-resolution](multidash-prefix-epic-resolution) (Entry)
