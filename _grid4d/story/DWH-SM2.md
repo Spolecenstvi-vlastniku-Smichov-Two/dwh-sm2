@@ -13,6 +13,7 @@
 **StoryHistoryKeep:** 2
 **StoryPattern:** story-pattern-default
 **GitHubAccount:** Spolecenstvi-vlastniku-Smichov-Two
+**StoryPrefix:** DWH-SM2-
 
 ## Overview
 
