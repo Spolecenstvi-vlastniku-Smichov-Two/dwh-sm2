@@ -6,6 +6,7 @@
 
 - [story-prefix-mismatch](evolucean/story-prefix-mismatch) (Entry)
 - [implementation-epic-inheritance-blueprint](evolucean/implementation-epic-inheritance-blueprint) (Rule)
+- [EVOLUCEAN-0395-tests](evolucean/EVOLUCEAN-0395-tests) (Check)
 
 ## Updated
 
@@ -21,3 +22,4 @@
 - [implementation-epic-blueprint-missing-template](implementation-epic-blueprint-missing-template) (Entry)
 - [epic-founding-procedure](epic-founding-procedure) (Entry)
 - [epic-init-inherits-root-default](epic-init-inherits-root-default) (Entry)
+- [DWH-SM2-0001-tests](DWH-SM2-0001-tests) (Check)
