@@ -37,6 +37,9 @@ Method:
      not individual flats: a section average above the limit is a LOWER
      BOUND - the critical flats were hotter. Metrics: daily min/mean/max,
      share of hours above 27/30 degC, and the night minimum (00-05h).
+     Windows from 2025-08 on also get a separate graph
+     (window_thermopro_*.png) plotting the measured 5NP corridors against
+     the outdoor air.
   5. Candidate evidence table (candidates.csv): every location whose
      indoor max exceeds the 30 degC air limit inside a selected window -
      measured 5NP corridor sensors (ThermoPro) and section averages
@@ -214,6 +217,51 @@ def plot_window(hourly_amb: pd.DataFrame, hourly_in03: pd.DataFrame,
     plt.close(fig)
 
 
+def plot_window_thermopro(hourly_amb: pd.DataFrame, thermo5: pd.DataFrame,
+                          start, end, frozen_days: set, out: Path) -> None:
+    """Separate graph: outdoor air vs measured 5NP corridor sensors (ThermoPro).
+
+    DWH-SM2-0003 deliverable — the real measurements deserve their own chart:
+    min-max band of all 5NP corridors plus the 5NP-S3 line (the persistent
+    hot spot, top floor section 3), against the design day and both limits.
+    """
+    fig, ax = plt.subplots(figsize=(14, 5))
+    design_x, design_y = [], []
+    span = pd.date_range(start, end + pd.Timedelta(days=1), freq="D", tz=PRAGUE)
+    for day0 in span[:-1]:
+        for h, v in DESIGN_DAY.items():
+            design_x.append(day0 + pd.Timedelta(hours=h))
+            design_y.append(v)
+    ax.plot(design_x, design_y, color="grey", ls="--", lw=1.0,
+            label="CSN 73 0540-3 design day (peak 30.0)")
+    ax.plot(hourly_amb["time"], hourly_amb["data_value"],
+            color="green", lw=1.2, label="outdoor (Atrea temp_ambient sm2_01)")
+    wide = thermo5.pivot_table(index="time", columns="location",
+                               values="data_value")
+    ax.fill_between(wide.index, wide.min(axis=1), wide.max(axis=1),
+                    color="purple", alpha=0.12,
+                    label="5NP corridors min-max band (ThermoPro measured)")
+    if "5NP-S3" in wide.columns:
+        s3 = wide["5NP-S3"].dropna()
+        ax.plot(s3.index, s3, color="purple", lw=1.4,
+                label="measured 5NP-S3 corridor (top floor, section 3)")
+    ax.axhline(LIMIT_OP, color="red", lw=1, ls=":", label="27.0 degC operative limit")
+    ax.axhline(LIMIT_AIR_ALT, color="darkred", lw=1, ls="-.",
+               label="30.0 degC air limit (surface ~24 degC)")
+    for fd in sorted(frozen_days):
+        ax.axvspan(pd.Timestamp(fd, tz=PRAGUE), pd.Timestamp(fd, tz=PRAGUE) + pd.Timedelta(days=1),
+                   color="orange", alpha=0.12)
+    ax.xaxis.set_major_locator(mdates.DayLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    ax.set_ylabel("temperature (degC)")
+    ax.set_title(f"Quasi-stationary window {start} .. {end}: outdoor vs measured "
+                 "5NP corridors (ThermoPro; orange = frozen sensor day)")
+    ax.legend(loc="upper left", fontsize=8, ncol=2)
+    fig.tight_layout()
+    fig.savefig(out, dpi=130)
+    plt.close(fig)
+
+
 def plot_summer(hourly: pd.DataFrame, year: int, out: Path) -> None:
     """Whole-year overview: outdoor band + indoor sm2_03 min/mean/max."""
     fig, ax = plt.subplots(figsize=(16, 5))
@@ -317,6 +365,11 @@ def main() -> None:
                   f"rooms with max >30: {int((ts['tmax'] > LIMIT_AIR_ALT).sum())}/{len(ts)}")
             summary_rows[-1]["thermopro_max"] = round(float(ts["tmax"].max()), 1)
             summary_rows[-1]["thermopro_rooms_max_gt30"] = int((ts["tmax"] > LIMIT_AIR_ALT).sum())
+            # separate deliverable graph: outdoor vs measured 5NP corridors
+            plot_window_thermopro(
+                amb_h, thermo[thermo["location"].str.startswith("5NP-")],
+                pd.Timestamp(start), pd.Timestamp(end), frozen,
+                out / f"window_thermopro_{start}_{end}.png")
             # candidate evidence: measured 5NP (top floor) corridor sensors above the limit
             for loc, r in ts[ts.index.str.startswith("5NP-")
                              & (ts["tmax"] > LIMIT_AIR_ALT)].iterrows():
