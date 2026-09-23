@@ -51,6 +51,15 @@ tests:
       test -f _grid4d/issue/atrea-weekend-frozen-readings.md
     expect:
       exit_code: 0
+  - name: R5_candidate_evidence_table
+    description: candidates.csv lists 3 Atrea section averages for Aug 2024 and measured corridor sensor 5NP-S3 for both ThermoPro windows
+    command: |
+      test -f analysis/candidates.csv &&
+      test "$(grep -cF '2024-08-02..2024-08-04,atrea_section_average' analysis/candidates.csv)" -eq 3 &&
+      grep -qF '2025-08-19..2025-08-21,thermopro_measured_corridor_5np,5NP-S3,30.9' analysis/candidates.csv &&
+      grep -qF '2026-07-08..2026-07-11,thermopro_measured_corridor_5np,5NP-S3,31.1' analysis/candidates.csv
+    expect:
+      exit_code: 0
 ```
 
 ## Execution
@@ -61,6 +70,7 @@ tests:
 | R2_frozen_flag_and_real_days | ✅ | 2026-09-23 |
 | R3_decisive_windows_indoor_gt30 | ✅ | 2026-09-23 |
 | R4_report_documents_deliverables | ✅ | 2026-09-23 |
+| R5_candidate_evidence_table | ✅ | 2026-09-23 |
 
 ## Related
 

@@ -27,10 +27,20 @@ Method:
      Quasi-stationary window = >= 3 consecutive WARM class-A days with
      >= 3 real (non-frozen) days. Indoor evidence is evaluated against
      both limits: 27 degC operative and 30 degC air temperature.
-  4. Indoor evidence: Atrea temp_indoor per section (air extracted from
-     the flats, aggregated per section) and ThermoPro room sensors
-     (1NP/5NP floors) where available. Metrics: daily min/mean/max,
+  4. Indoor evidence (two sources, Human-confirmed interpretation):
+     ThermoPro sensors sit on the floor CORRIDORS (floors 1NP/5NP) -
+     real measured temperatures with practically no internal gains
+     (people/appliances), so corridor overheating is structural/solar;
+     flats with internal gains are expected hotter. The 5th floor (5NP)
+     is the focus. Atrea temp_indoor per section (sm2_01..09) is the
+     AVERAGE temperature of air extracted from all flats of the section,
+     not individual flats: a section average above the limit is a LOWER
+     BOUND - the critical flats were hotter. Metrics: daily min/mean/max,
      share of hours above 27/30 degC, and the night minimum (00-05h).
+  5. Candidate evidence table (candidates.csv): every location whose
+     indoor max exceeds the 30 degC air limit inside a selected window -
+     measured 5NP corridor sensors (ThermoPro) and section averages
+     (Atrea).
 
 Usage:
   python quasistationary_selection.py --parquet <sm2_public_dataset.parquet> \
@@ -254,6 +264,7 @@ def main() -> None:
     print("Quasi-stationary windows (>= 3 consecutive WARM days with outdoor "
           "tmax <= 30.0 degC, >= 3 real days):")
     summary_rows = []
+    candidate_rows: list[dict] = []
     for start, end in windows:
         sub = daily.loc[start:end]
         n_real = int((~sub["frozen"]).sum())
@@ -281,6 +292,14 @@ def main() -> None:
         print(f"    sm2_03 indoor max {s03['tmax']:.1f} degC, "
               f"days with indoor max >30: {s03['days_tmax_gt30']}, "
               f"sections with any hour >30: {summary_rows[-1]['sections_with_hour_gt30']}/9")
+        # candidate evidence: section averages exceeding the 30 degC air limit
+        # (a section average above the limit is a lower bound for the flats)
+        for loc, r in stats[stats["tmax"] > LIMIT_AIR_ALT].iterrows():
+            candidate_rows.append({
+                "window": f"{start}..{end}", "source": "atrea_section_average",
+                "location": loc, "tmax": round(float(r["tmax"]), 1),
+                "pct_gt27": r["pct_gt27"],
+            })
         amb_h = atrea[(atrea["location"] == "sm2_01") & (atrea["data_key"] == "temp_ambient")
                       & (atrea["day"] >= start) & (atrea["day"] <= end)]
         in03_h = atrea[(atrea["location"] == "sm2_03") & (atrea["data_key"] == "temp_indoor")
@@ -298,7 +317,20 @@ def main() -> None:
                   f"rooms with max >30: {int((ts['tmax'] > LIMIT_AIR_ALT).sum())}/{len(ts)}")
             summary_rows[-1]["thermopro_max"] = round(float(ts["tmax"].max()), 1)
             summary_rows[-1]["thermopro_rooms_max_gt30"] = int((ts["tmax"] > LIMIT_AIR_ALT).sum())
+            # candidate evidence: measured 5NP (top floor) corridor sensors above the limit
+            for loc, r in ts[ts.index.str.startswith("5NP-")
+                             & (ts["tmax"] > LIMIT_AIR_ALT)].iterrows():
+                candidate_rows.append({
+                    "window": f"{start}..{end}",
+                    "source": "thermopro_measured_corridor_5np",
+                    "location": loc, "tmax": round(float(r["tmax"]), 1),
+                    "pct_gt27": r["pct_gt27"],
+                })
     pd.DataFrame(summary_rows).to_csv(out / "window_summary.csv", index=False)
+    pd.DataFrame(
+        candidate_rows,
+        columns=["window", "source", "location", "tmax", "pct_gt27"],
+    ).to_csv(out / "candidates.csv", index=False)
 
     for year in (2024, 2025, 2026):
         plot_summer(atrea, year, out / f"overview_{year}.png")
