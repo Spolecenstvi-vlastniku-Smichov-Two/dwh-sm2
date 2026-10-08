@@ -95,7 +95,7 @@ Raw Sensor Data (Google Drive)
     • Outputs: sm2_public_dataset.csv.gz, sm2_public_dataset.parquet
     • Uploads to: sm2drive:Public/
     ✅ Final public dataset ready
-    ⏱️ Weekly: Saturday 02:10 UTC
+    ⏱️ Daily: 01:30 UTC
 ```
 
 **Data Flow Dependency:**
@@ -114,9 +114,10 @@ Each workflow **MUST complete successfully before the next one starts**. They ar
 - **Publish Public Dataset** reads aggregated CSVs from InfluxImportNormalize, builds final public dataset
 
 All workflows are defined in `.github/workflows/` and can be triggered via:
-- Push to `main` branch
 - Scheduled cron triggers (see individual workflows)
 - Manual dispatch (`workflow_dispatch`)
+
+**📖 Operational source of truth:** verified schedules, failure modes and recovery procedures live in the runbook: [`_grid4d/subepic/dwh-sm2-app/implementation/dwh-sm2-app-runbook.md`](_grid4d/subepic/dwh-sm2-app/implementation/dwh-sm2-app-runbook.md).
 
 **⚠️ Important:** When triggering manually, always maintain the sequential order. Do NOT start InfluxImportNormalize before Refresh completes, and do NOT start Publish Public Dataset before InfluxImportNormalize completes.
 
@@ -124,7 +125,6 @@ All workflows are defined in `.github/workflows/` and can be triggered via:
 
 **File:** `.github/workflows/refresh.yml`  
 **Triggers:**
-- Push to `main` branch
 - Daily schedule: `0 0 * * *` (00:00 UTC)
 - Manual: `workflow_dispatch`
 
@@ -153,20 +153,17 @@ Merge latest sensor data, transform via dbt, generate fact tables, run tests, ex
    rclone copy sm2drive:Indoor/Latest/Upload ./latest/
    ```
 
-3. **Ventilation Data Merge** (`scripts/indoor_merge_all_sensors.sh`)
-   - Read Graph CSV exports (semicolon-delimited, UTF-8)
-   - Auto-detect date format: MDY (`MM/DD/YYYY`) vs DMY (`DD/MM/YYYY`)
-   - Heuristics:
-     - Last date matches today? → That format
-     - Last date in last week? → That format
-     - Unique value counts (p1 vs p2 vary) → That format
-     - Fallback: hint count (values > 12 in p1 → DMY)
-   - Handle null tokens: empty string, `-`, `NA`, `NULL` → skip or mark
+3. **Ventilation Data Merge** (inline csvkit bash in `.github/workflows/refresh.yml`)
+   - Read Atrea Graph CSV exports (`./latest/Graph*`, semicolon-delimited)
+   - `csvcut` trims each file to its last text column (drops trailing numeric-only columns)
+   - `csvjoin --locale cs_CZ -c Date --outer` joins all files on `Date`
    - Output: `./gdrive/merged.csv` (Date, KOT1/Teplota venkovní (°C), ...)
+   - Extracts the export date from the last `00:00` row (feeds the `extdate` archive stamp)
+   - No Graph files present → writes a header-only `merged.csv`
 
-4. **Indoor Data Merge** (`scripts/indoor_merge_all_sensors.sh`)
-   - Process ThermoPro CSV exports
-   - Same date format detection logic
+4. **Indoor Data Merge** (`scripts/indoor_merge_all_sensors.sh`, v3.1)
+   - Process ThermoPro/TempPro sensor CSV exports
+   - Automatic DMY/MDY date format detection (heuristics; see the script section below)
    - Output: `./gdrive/all_sensors_merged.csv` (Datetime, Temperature_Celsius, Relative_Humidity(%), Location)
    - Validation: Month ≤ 12 check; fail on invalid dates
 
@@ -249,7 +246,6 @@ Merge latest sensor data, transform via dbt, generate fact tables, run tests, ex
 
 **File:** `.github/workflows/influx_import_workflow.yml`  
 **Triggers:**
-- Push to `main` branch
 - Daily schedule: `30 0 * * *` (00:30 UTC)
 - Manual: `workflow_dispatch`
 
@@ -304,12 +300,13 @@ Read fact tables from Google Drive (output of Refresh workflow), import into Inf
 
 7. **Previous Exports Check** (`scripts/check_and_import_previous_exports.py`)
    - Scan `./gdrive/Influx/*.csv` for previously exported raw data
-   - Re-import into InfluxDB (idempotent via `skipRowOnError`)
+   - Re-import into InfluxDB (plain `influx write --file` per file; the ephemeral bucket makes re-imports idempotent - a point with identical timestamp and tags overwrites its predecessor)
 
 8. **InfluxDB Write**
    ```bash
-   influx write --bucket sensor_data --format csv --file nonadditive_combined.annotated.csv
+   influx write --bucket sensor_data --format csv --file nonadditive_combined.annotated.csv --skipRowOnError
    ```
+   - `--skipRowOnError` skips rows whose `_value` is empty
 
 9. **Verify & Debug**
    - List buckets: `influx bucket list`
@@ -335,115 +332,6 @@ Read fact tables from Google Drive (output of Refresh workflow), import into Inf
   - `INFLUX_ORG: ci-org`
   - `INFLUX_URL: http://localhost:8086`
 
----
-
-### Refresh Workflow
-
-**File:** `.github/workflows/refresh.yml`  
-**Triggers:**
-- Push to `main` branch
-- Daily schedule: `0 0 * * *` (00:00 UTC)
-- Manual: `workflow_dispatch`
-
-**Purpose:**
-End-to-end dbt refresh: download latest sensor exports, merge indoor data, transform via dbt, run tests, generate docs, export fact tables.
-
-**Steps:**
-
-1. **Setup**
-   - Checkout code
-   - Setup Rclone + Google Drive credentials
-   - Setup Python 3.12
-
-2. **Data Download**
-   ```bash
-   rclone copy sm2drive:Vzduchotechnika/Model/ ./gdrive/
-   rclone copy sm2drive:Indoor/Model/ ./gdrive/
-   rclone copy sm2drive:Vzduchotechnika/Latest/Upload ./latest/
-   rclone copy sm2drive:Indoor/Latest/Upload ./latest/
-   ```
-
-3. **Ventilation Data Merge** (`scripts/indoor_merge_all_sensors.sh`)
-   - Read Graph CSV exports (semicolon-delimited, UTF-8)
-   - Auto-detect date format: MDY (`MM/DD/YYYY`) vs DMY (`DD/MM/YYYY`)
-   - Heuristics:
-     - Last date matches today? → That format
-     - Last date in last week? → That format
-     - Unique value counts (p1 vs p2 vary) → That format
-     - Fallback: hint count (values > 12 in p1 → DMY)
-   - Handle null tokens: empty string, `-`, `NA`, `NULL` → skip or mark
-   - Output: `./gdrive/merged.csv` (Date, KOT1/Teplota venkovní (°C), ...)
-
-4. **Indoor Data Merge** (`scripts/indoor_merge_all_sensors.sh`)
-   - Process ThermoPro CSV exports
-   - Same date format detection logic
-   - Output: `./gdrive/all_sensors_merged.csv` (Datetime, Temperature_Celsius, Relative_Humidity(%), Location)
-   - Validation: Month ≤ 12 check; fail on invalid dates
-
-5. **Install dbt Dependencies**
-   ```bash
-   pip install dbt-duckdb duckdb
-   dbt deps
-   ```
-   - Profile: `dwh_sm2` → DuckDB backend (`dwh_sm2.duckdb`)
-   - Threads: 24
-
-6. **SQL Linting**
-   ```bash
-   sqlfluff fix --dialect duckdb -v models/
-   sqlfluff lint --dialect duckdb -v models/
-   ```
-   - Dialect: DuckDB
-   - Auto-fix + lint report
-
-7. **dbt Freshness Check**
-   ```bash
-   dbt source freshness
-   ```
-   - Validates CSV sources are recent
-
-8. **dbt Seed**
-   ```bash
-   dbt seed
-   ```
-   - Loads mapping CSVs into DuckDB tables:
-     - `mapping.csv` (data_key_original → location, data_key)
-     - `mapping_indoor.csv` (sensor → location)
-     - `mapping_sources.csv` (file_nm, source_nm, history)
-     - `location_map.csv` (public location names)
-
-9. **dbt Build (Incremental Strategy)**
-   ```bash
-   dbt build --select result:error+ source_status:fresher+ --defer --state docs
-   ```
-   - Selects only failed models + fresher sources + defer to prior state
-   - If successful → done
-   - If failed → run full `dbt build` (all models)
-
-10. **Generate Documentation**
-    ```bash
-    dbt docs generate
-    ```
-    - Creates `target/manifest.json`, `target/catalog.json`, `target/index.html`
-    - Copy to `docs/` directory
-
-11. **Upload Fact Tables**
-    ```bash
-    rclone copy fact.csv sm2drive:Vzduchotechnika/Model/
-    rclone copy fact_indoor_temperature.csv sm2drive:Indoor/Model/
-    rclone copy fact_indoor_humidity.csv sm2drive:Indoor/Model/
-    ```
-
-12. **Archive Old Data**
-    - Move `Vzduchotechnika/Latest/Upload/*` → `Vzduchotechnika/Archiv/{TIMESTAMP}/`
-    - Move `Indoor/Latest/Upload/*` → `Indoor/Archiv/{TIMESTAMP}/`
-    - Timestamp format: `YYYY-MM-DD_HH-MM-SS`
-
-13. **Commit & Push**
-    - Add all files: `git add --all :/`
-    - Commit: `"Add docs"`
-    - Push to branch: `ad-m/github-push-action`
-
 **Output Files for Next Workflow:** ⭐ CRITICAL OUTPUT
 - ✅ `additive_YYYY-MM.hourly.csv` (uploaded to sm2drive:Normalized/)
 - ✅ `nonadditive_YYYY-MM.hourly.csv` (uploaded to sm2drive:Normalized/)
@@ -457,8 +345,7 @@ End-to-end dbt refresh: download latest sensor exports, merge indoor data, trans
 
 **File:** `.github/workflows/publish_public_dataset.yml`  
 **Triggers:**
-- Push to `main` branch
-- Weekly schedule: `10 2 * * 6` (Saturday 02:10 UTC = Sun 03:10 CET)
+- Daily schedule: `30 1 * * *` (01:30 UTC = 02:30 CET / 03:30 CEST)
 - Manual: `workflow_dispatch`
 
 **⚠️ Execution Order: THIRD (3️⃣)**
@@ -546,9 +433,11 @@ Aggregate hourly sensor data into a public CC BY 4.0 dataset with schema & docum
    ```csv
    #datatype,dateTime:RFC3339,string,string,string,string,double
    #group,false,true,true,true,true,false
-   #default,,,,,
-   _time,_measurement,location,quantity,source,_value
+   #default,,,,,,
+   _time,_measurement,location,source,quantity,_field,_value
+   2026-10-07T00:00:00Z,nonadditive,SM2_01,ThermoPro,temperature,temperature,22.5
    ```
+   - `_field` duplicates `quantity` (the InfluxDB field key is the quantity name)
 
 **Output:** `nonadditive_combined.annotated.csv`
 
@@ -559,14 +448,15 @@ Aggregate hourly sensor data into a public CC BY 4.0 dataset with schema & docum
 **Purpose:** Re-import previously exported monthly raw CSVs for idempotent data recovery.
 
 **Logic:**
-1. Scan `./gdrive/Influx/*.csv` recursively
-2. For each CSV with size > 0:
+1. Scan `./gdrive/Influx/**/*.csv` recursively; missing and zero-size files are skipped with a warning
+2. For each CSV:
    ```bash
-   influx write --bucket sensor_data --format csv --file {csv}
+   influx write --bucket sensor_data --org "$INFLUX_ORG" --token "$INFLUX_TOKEN" --format csv --file {csv}
    ```
-3. Use `--skipRowOnError` for duplicate-safe writes
+   - No `--skipRowOnError` here (that flag belongs to the workflow's own nonadditive write step)
+   - A failed write prints stderr and moves on to the next file
 
-**Exit Code:** 0 (success), 1 (InfluxDB error)
+**Exit Code:** always 0 - write failures are logged, never propagated
 
 ---
 
@@ -624,13 +514,15 @@ Aggregate hourly sensor data into a public CC BY 4.0 dataset with schema & docum
 
 ---
 
-### `scripts/indoor_merge_all_sensors.sh` (v2.2)
+### `scripts/indoor_merge_all_sensors.sh` (v3.1)
 
-**Purpose:** Robust merging of ThermoPro sensor exports with automatic date format detection.
+**Purpose:** Robust merging of ThermoPro/TempPro sensor exports with automatic date format detection.
 
 **Language:** Bash/AWK (36 KB)
 
 **Features:**
+
+- **v3.1 changes** (on top of v2.2 logic, 100% preserved): generalized `INPUT_GLOB` via `nocaseglob` (matches `TempPro*` and `ThermoPro*` export names), robust sensor-location extraction via regex `_[0-9A-F]{4}_`
 
 - **Date Format Auto-Detection (DMY vs MDY):**
   - Heuristics:
@@ -654,7 +546,7 @@ Aggregate hourly sensor data into a public CC BY 4.0 dataset with schema & docum
 
 **Environment Variables:**
 ```bash
-INPUT_GLOB="./latest/ThermoProSensor_export_*.csv"
+INPUT_GLOB="./latest/*.csv"       # v3.1 default; nocaseglob catches TempPro* and ThermoPro* variants
 OUTPUT="./gdrive/all_sensors_merged.csv"
 SAMPLE_N=5                      # null token samples to show
 TZ="Europe/Prague"              # timezone for today detection
@@ -1036,8 +928,7 @@ sqlfluff fix --dialect duckdb models/
    - Update tests in schema.yml
 
 4. **Commit & Push:**
-   - Workflows auto-trigger on push to main
-   - Validate via GitHub Actions logs
+   - Workflows run on their cron schedules (there are no push triggers); validate via GitHub Actions logs or a manual `workflow_dispatch`
 
 ### Metrics & Monitoring
 
@@ -1060,7 +951,7 @@ dbt source freshness
 **InfluxDB Import Fails:**
 - Check `debug_influx_raw.py` output for schema validation
 - Verify CSV headers match InfluxDB annotated format
-- Use `--skipRowOnError` in workflows for robustness
+- The workflow's own InfluxDB write step already runs with `--skipRowOnError` (rows with an empty `_value` are skipped); the re-import script does not - check its log output
 
 **Date Format Detection Fails:**
 - Set `FORCE_FMT=DMY` or `FORCE_FMT=MDY` in `indoor_merge_all_sensors.sh`
@@ -1086,8 +977,8 @@ The `history` parameter in `seeds/mapping_sources.csv` controls how far back the
 ```csv
 file_nm,source_nm,history
 fact.csv,Atrea,4          # Process last 4 months
-fact_indoor_humidity.csv,ThermoPro,4
-fact_indoor_temperature.csv,ThermoPro,4
+fact_indoor_humidity.csv,ThermoPro,2
+fact_indoor_temperature.csv,ThermoPro,2
 ```
 
 **How it works:**

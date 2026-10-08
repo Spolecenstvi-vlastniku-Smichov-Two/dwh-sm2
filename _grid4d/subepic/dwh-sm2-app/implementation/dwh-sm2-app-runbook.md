@@ -10,15 +10,15 @@ Three GitHub Actions workflows run daily in sequence (Refresh 00:00 → InfluxIm
 
 | Component | Location | Runs | Notes |
 |-----------|----------|------|-------|
-| refresh workflow | `.github/workflows/refresh.yml` | cron `0 0 * * *` + dispatch | inline csvkit ventilation merge; `indoor_merge_all_sensors.sh` v3.1 (GNU-only grep/date); dbt incremental-then-full build; bot commit `git add --all :/`; Drive archive step |
+| refresh workflow | `.github/workflows/refresh.yml` | cron `0 0 * * *` + dispatch | inline csvkit ventilation merge; `indoor_merge_all_sensors.sh` v3.1 (GNU-only grep/date); dbt incremental build with content-only upload guard (`source_status:fresher+` selects nothing → `::warning::` + full-build fallback, v0.0004.1.0002.00); bot commit `git add --all :/`; Drive archive step |
 | InfluxImportNormalize | `.github/workflows/influx_import_workflow.yml` | cron `30 0 * * *` + dispatch | InfluxDB 2.7 service container (CI literals: `ci-user`/`ci-secret-token`); CLI 2.7.5 amd64 (step name says ARM64 - cosmetic); hard-fails |
 | Publish Public Dataset | `.github/workflows/publish_public_dataset.yml` | cron `30 1 * * *` + dispatch | plain `git push` on checkout credentials; missing location_map only warns |
-| prepare_annotated_csv.py | `scripts/` | workflow 2 | pandas; writes 7-col annotated CSV header (README shows stale 6-col); emits `months_to_process.json` |
-| check_and_import_previous_exports.py | `scripts/` | workflow 2 | re-imports additive history; README claims `--skipRowOnError` + exit-1 semantics it does not have |
+| prepare_annotated_csv.py | `scripts/` | workflow 2 | pandas; writes 7-col annotated CSV header (`_time,_measurement,location,source,quantity,_field,_value`); emits `months_to_process.json` |
+| check_and_import_previous_exports.py | `scripts/` | workflow 2 | re-imports additive history via plain `influx write` per file; write failures logged and skipped, always exits 0 |
 | export_aggregated_to_csv.py | `scripts/` | workflow 2 | hourly aggregateWindow → Drive `Normalized/`; literal CI token fallback in source |
 | export_raw_by_month.py | `scripts/` | workflow 2 | monthly raw export → Drive `Influx/`; hard `os.environ[...]` on missing env |
 | debug_influx_raw.py | `scripts/` | workflow 2 | diagnostic print only |
-| indoor_merge_all_sensors.sh | `scripts/` | workflow 1 | v3.1; env-var configurable; README documents v2.2 |
+| indoor_merge_all_sensors.sh | `scripts/` | workflow 1 | v3.1 (nocaseglob glob, `_[0-9A-F]{4}_` location regex); env-var configurable |
 | build_public_dataset.py | `scripts/` | workflow 3 | validates 6 columns, location remap, uploads 5 files to Drive `Public/`; parquet failure tolerated |
 | dbt project | `dbt_project.yml`, `models/{ventilation,indoor}/` | workflow 1 | DuckDB `dwh_sm2.duckdb`, threads 24, external CSV materializations; 3 not_null tests total; dead config for non-existent `*_original` models; `dbt deps` is a no-op (no packages.yml) |
 | seeds | `seeds/` (mapping, mapping_indoor, mapping_sources, location_map) | workflow 1 | sensor → location translations; `history` months per source drive the rolling window |
@@ -30,12 +30,12 @@ Three GitHub Actions workflows run daily in sequence (Refresh 00:00 → InfluxIm
 
 | Component | Documented where | Current? |
 |-----------|------------------|----------|
-| Whole pipeline | `README.md` (1163 lines) | ❌ false trigger claims ("on push"), wrong publish cadence (weekly vs daily), attributes ventilation merge to the indoor script, stale script semantics |
+| Whole pipeline | `README.md` (~1055 lines) | ✅ repaired 2026-10-08 (DWH-SM2-APP-0004): triggers/cadence/attribution/script semantics/seed values corrected, duplicate Refresh section removed, runbook pointer added |
 | Architecture | `ARCHITECTURE_HYBRID_PLATFORM.md` (root) | 🟡 strategy doc 2025-12-23, describes an unimplemented future platform |
 | Architecture (deleted in drift) | `ARCHITECTURE_REFACTORING_PROPOSAL.md` (Czech), `ARCHITECTURE_REFINEMENT.md`, `REFACTORING_ROADMAP.md` | ❌ pending deletion in the uncommitted main-tree drift; proposal-grade, superseded |
 | dbt docs | `docs/` (current, dbt 1.12.5) | ✅ auto-committed by refresh |
 | dbt docs (stale) | `docs/dwh-sm2/`, `docs/tmp_docs/dwh-sm2/` (dbt 1.9.1, 2025-01) | ❌ describe a model lineage that no longer exists |
-| datex viewer | none (self-contained) | 🟡 no README of its own; config duplication |
+| datex viewer | `docs/datex/README.md` | ✅ documented 2026-10-08 (DWH-SM2-APP-0004); open issue [dwh-sm2-app-datex-config-metrics-duplicated](../issue/dwh-sm2-app-datex-config-metrics-duplicated) |
 | analysis toolkit | `analysis/DWH-SM2-0002-report.md`, story docs 0002/0003 | ✅ |
 | Application ontology | this SubEpic `ontology/` | ✅ founded by this story |
 | Runbook | this document | ✅ founded by this story |

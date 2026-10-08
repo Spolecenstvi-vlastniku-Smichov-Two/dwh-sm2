@@ -1,6 +1,6 @@
 # README documents an application that does not exist
 
-**Status:** open
+**Status:** resolved 2026-10-08 (DWH-SM2-APP-0004)
 **Found:** 2026-10-08 (DWH-SM2-APP-0001 audit)
 
 ## Problem
@@ -20,6 +20,19 @@ The README is the first document a collaborator, auditor, or expert reads in an 
 ## Solution Direction
 
 Either regenerate the operational sections from the workflow files (single source of truth, possibly a checked-in generated excerpt per workflow), or trim the README to stable facts and link the runbook ([dwh-sm2-app-runbook](../implementation/dwh-sm2-app-runbook)) for anything operational. A README-facts test in the story suite can pin cron expressions and script names against the files.
+
+
+## Resolution
+
+DWH-SM2-APP-0004 repaired all five claim groups directly in the README (now ~1055 lines):
+
+1. All push-trigger bullets removed (global list, refresh, InfluxImportNormalize, Publish triggers; "Adding New Sensors" commit note rephrased). No `push:` trigger exists in any workflow file.
+2. Publish cadence corrected to daily `30 1 * * *` (01:30 UTC) in the pipeline diagram and the Publish triggers.
+3. Ventilation merge re-attributed to the inline csvkit bash in `refresh.yml` (`csvcut`/`csvjoin --locale cs_CZ -c Date --outer`); the indoor script is credited only with the ThermoPro/TempPro indoor merge.
+4. `check_and_import_previous_exports.py` documented with its real semantics (plain `influx write` per file, failures logged and skipped, always exits 0); the workflow's own write step now shows its real `--skipRowOnError` flag; `indoor_merge_all_sensors.sh` documented as v3.1 (with the v3.1 nocaseglob/location-regex deltas and the real `INPUT_GLOB` default); annotated-CSV example shows the real 7-column header with `_field`.
+5. History seed values corrected to 4/2/2.
+
+Also removed: the duplicated "Refresh Workflow" section (~109 lines, sat between the Influx section and its output trailer). Added: a runbook pointer as the operational source of truth (README line ~120). A README-facts suite pins the repaired claims - see DWH-SM2-APP-0004-tests.
 
 ## Related
 
