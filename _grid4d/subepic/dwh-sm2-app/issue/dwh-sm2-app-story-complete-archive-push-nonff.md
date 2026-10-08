@@ -27,7 +27,7 @@ The failure lands exactly at the end of a long idempotent sequence: the release 
 
 ## Solution Direction
 
-- **Preflight guard (operational, now):** before `story complete` in this epic, run `git -C ~/ahabase/dwh-sm2 fetch origin && git -C ~/ahabase/dwh-sm2 status -sb` and catch main up (`merge --ff-only origin/main`) if behind. Candidate runbook Operating Note.
+- **Preflight is INSUFFICIENT (verified 2026-10-08, 0005 completion):** a clean preflight (local main == origin/main) did not prevent the failure - the complete run itself creates the divergence mid-flight: it pushes the story commits to origin/main but never fast-forwards the local main branch before building the archive branch on it. Until the CLI fix, expect the recovery recipe after every complete in this epic; only the recipe below is reliable.
 - **Recovery (verified 2026-10-08):**
   1. `git -C ~/ahabase/dwh-sm2 checkout main`
   2. `git merge --ff-only origin/main` (main-tree drift in `analysis/` + ARCH docs survives - incoming commits do not touch those paths)
@@ -39,6 +39,7 @@ The failure lands exactly at the end of a long idempotent sequence: the release 
 ## Occurrences
 
 - 2026-10-08, DWH-SM2-APP-0004 (`v0.0004.1.0004.00`): archive push rejected; recovery above executed clean (origin/main `8d003c3..a4167e9`), release untouched, drift preserved.
+- 2026-10-08, DWH-SM2-APP-0005 (`v0.0004.1.0005.00`): identical failure DESPITE a clean preflight (main == origin/main before the run) - proves the divergence is created by the run's own push-then-stale-local-main sequencing, not by external bot commits alone. Recovery executed clean (origin/main `ea32edf..dab9448`); checkout was again left on the chore branch.
 
 ## Related
 
