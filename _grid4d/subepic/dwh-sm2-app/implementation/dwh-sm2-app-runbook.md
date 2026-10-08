@@ -60,7 +60,8 @@ Three GitHub Actions workflows run daily in sequence (Refresh 00:00 → InfluxIm
 2. **Freshness end-to-end**: `docs/datex/sm2_public_dataset.parquet` last bot-commit is ≤ 2 days old (commit "chore: update sm2_public_dataset.parquet for Data Explorer").
 3. **Evidence freshness**: datex viewer (github.io) shows the most recent days for any section; frozen weekend readings are a known data-quality pattern (parent Epic issue `atrea-weekend-frozen-readings`).
 4. **Drive hygiene**: `sm2drive:{Vzduchotechnika,Indoor}/Latest/Upload` should stay near-empty (the refresh archive step purges it); accumulation means refresh is failing before its archive step.
-5. **Manual recovery**: every workflow has `workflow_dispatch` - re-run the failed stage from the Actions UI after fixing the cause; stages are independent beyond their Drive inputs.
+5. **Fact upload really happened**: a green refresh conclusion is not proof the data moved. In the run log, the fact upload step must NOT print `fact_indoor_temperature.csv not found, skipping upload` (rclone prints nothing on success, so a real transfer shows as a ~10 s gap instead). A skip means `Model/` was not updated and every downstream stage republishes stale data - [dwh-sm2-app-refresh-freshness-silent-skip](../issue/dwh-sm2-app-refresh-freshness-silent-skip). After re-uploading sensor exports whose latest reading does not advance the recorded max, expect the `::warning::source_status:fresher+ selected no nodes - falling back to full dbt build` annotation (the fix turning this case into a full rebuild).
+6. **Manual recovery**: every workflow has `workflow_dispatch` - re-run the failed stage from the Actions UI after fixing the cause; stages are independent beyond their Drive inputs.
 
 ## Operating Notes
 

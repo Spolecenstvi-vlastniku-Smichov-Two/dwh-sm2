@@ -107,7 +107,22 @@ jobs:
 
       - name: Run dbt build
         id: run_dbt_build
-        run: dbt build --select result:error+ source_status:fresher+ --defer --state docs
+        run: |
+          set -o pipefail
+          dbt build --select result:error+ source_status:fresher+ --defer --state docs 2>&1 | tee dbt_selective_build.log
+          # Content-only source changes (new sensors, backfills) do not advance
+          # max(loaded_at), so 'fresher' can select no nodes while uploaded data
+          # changed; an empty selection still exits 0, so the fallback below
+          # never fires. When Upload actually delivered rows, detect the empty
+          # selection and fail the step on purpose. Issue:
+          # dwh-sm2-app-refresh-freshness-silent-skip.
+          rows_indoor=$(wc -l < ./gdrive/all_sensors_merged.csv 2>/dev/null || echo 0)
+          rows_vent=$(wc -l < ./gdrive/merged.csv 2>/dev/null || echo 0)
+          if sed 's/\x1b\[[0-9;]*m//g' dbt_selective_build.log | grep -q "source_status:fresher+.*does not match" \
+            && { [ "$rows_indoor" -gt 1 ] || [ "$rows_vent" -gt 1 ]; }; then
+            echo "::warning::source_status:fresher+ selected no nodes despite uploaded rows - falling back to full dbt build"
+            exit 1
+          fi
         continue-on-error: true
 
       - name: Full dbt build 
