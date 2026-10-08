@@ -15,6 +15,8 @@
 2. **Sequencing is currently implicit** - the only enforcement is cron stagger (00:00 / 00:30 / 01:30 UTC); a stage that overruns its 30-minute slot silently overlaps with the next (see issue [dwh-sm2-app-pipeline-unsequenced](../issue/dwh-sm2-app-pipeline-unsequenced)).
 3. **Every stage is resumable by `workflow_dispatch`** - manual re-run is the recovery path; no stage requires state from a previous run beyond its Drive inputs.
 4. **Failure visibility is the pipeline's open wound** - no stage notifies anyone on failure; detecting a dead pipeline is a Human act (GitHub Actions badge or inbox).
+5. **The pipeline is append-only (additive)** - fact models are `union distinct` of the new merge rows and the previous facts read back from Drive `Model/` (sources `fact_indoor_temperature_original` / `fact_indoor_humidity_original`); no stage deletes or overwrites a reading. An accidentally re-uploaded older file, or a file with empty values for later dates, can only add rows, never remove a previously valid one: rows where both temperature and humidity are empty are dropped at merge (per-location "nemeri" warning), rows with one empty value pass through, and the Influx import skips rows whose double field is empty (`--skipRowOnError`). Consequence: deliberate data removal has no pipeline path - it is a manual Drive/rebuild operation. Verified in code during DWH-SM2-APP-0002 (2026-10-08).
+6. **Fact windowing is config-driven** - fact models are limited by a rolling history window (months back from `params`), and `seeds/mapping_sources.csv` both maps sensor export filenames (`file_nm`) to their annotation and carries the window size. Extending history depth is a seed edit, not a model edit.
 
 ## Structure
 
