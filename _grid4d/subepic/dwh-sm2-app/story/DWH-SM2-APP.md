@@ -25,7 +25,7 @@ Non-goals:
 - evidence interpretation (window selection, ČSN 730540-2 argumentation, expert replies) - owned by the parent Epic
 - publication policy and licensing decisions - owned by the parent Epic
 
-First direction (Human-set, 2026-10-08): a full audit of the whole application and its documentation, ontology and implementation, as the first SubEpic story (DWH-SM2-APP-001).
+First direction (Human-set, 2026-10-08): a full audit of the whole application and its documentation, ontology and implementation, as the first SubEpic story (DWH-SM2-APP-0001).
 
 ## Scope
 
@@ -40,7 +40,7 @@ Application machinery of the SM2 monitoring pipeline: GitHub Actions workflows a
 | `ontology/` | Application concepts (pipeline stages, components) |
 | `_generated/` | CLI-generated exports |
 
-No stories allocated yet - the prefix is reserved for application work; DWH-SM2-APP-001 (full application audit) is the Human-set first story.
+One story active: DWH-SM2-APP-0001 (full application audit, the Human-set first story).
 
 ## Related
 
