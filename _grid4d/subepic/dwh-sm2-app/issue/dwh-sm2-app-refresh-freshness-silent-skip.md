@@ -1,6 +1,6 @@
 # Refresh dbt selection by source freshness silently skips content-only changes
 
-**Status:** open
+**Status:** resolved (v0.0004.1.0002.00, story DWH-SM2-APP-0002)
 **Found:** 2026-10-08 (live diagnosis, missing-sensors incident)
 
 ## Problem
@@ -26,6 +26,7 @@ Fail the selective build (or branch to the full build) when the selection is emp
 ## Occurrences
 
 - **2026-10-08 (live, missing-sensors incident)**: Human uploaded a partial sensor set, then re-uploaded the complete set after noticing gaps in datex. Runs 37738331019 (06:34) and 37756665551 (09:26) both merged all 26 sensor files (`all_sensors_merged.csv` = 26,634,057 B) yet both logged `source_status:fresher+ does not match any enabled nodes` → no fact rebuild → all three fact uploads skipped → `Model/` stayed at the 06:05 state written by run 37735598512 (which had rebuilt because the state manifest was a week stale after the lint outage). Influx 37738529816 / Publish 37739094359 consequently republished the partial dataset. Recovery: re-export with readings newer than the recorded max (advances `loaded_at`), or fix per Solution Direction.
+- **2026-10-08 10:22 UTC (fix verified live)**: after the fix shipped (v0.0004.1.0002.00), Human re-uploaded the full sensor set and dispatched refresh manually. Run 37761728956 exercised the whole recovery path: the guard detected the empty `source_status:fresher+` selection with merge rows present, emitted `::warning::source_status:fresher+ selected no nodes despite uploaded rows - falling back to full dbt build` and exited 1 deliberately; the `Full dbt build` fallback completed (PASS=10 TOTAL=10; fact_indoor_temperature 1.96 s, fact_indoor_humidity 1.86 s, fact 0.57 s); all three fact CSVs transferred to `Model/` (zero real `not found, skipping upload` outputs; ~14 s rclone gap 10:12:03→10:12:17). `Data/Indoor/Model` confirmed updated on GDrive by Human. Downstream chain completed green the same morning: InfluxImportNormalize 37762493326, Publish 37762967460, datex bot commit `chore: update sm2_public_dataset.parquet` at 10:22:42 UTC. Residual UX wart: the deliberate exit 1 renders a red `##[error]` annotation on the selective step — see [dwh-sm2-app-fallback-annotation-ux](../idea/dwh-sm2-app-fallback-annotation-ux).
 
 ## Related
 
