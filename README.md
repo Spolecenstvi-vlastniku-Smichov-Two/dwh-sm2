@@ -413,6 +413,20 @@ Aggregate hourly sensor data into a public CC BY 4.0 dataset with schema & docum
 
 ## Support Scripts
 
+### `scripts/pipeline_health.py`
+
+**Purpose:** One-step pipeline health reading (Sensor of the epic's knowledge integration; measure-only — no notifications yet).
+
+**Usage:**
+
+```bash
+python3 scripts/pipeline_health.py --status          # action + data freshness + recent outcomes
+python3 scripts/pipeline_health.py --json out.json   # persist a reading
+python3 scripts/pipeline_health.py --since 2026-09-20 --until 2026-10-06 --at 2026-10-06T23:59:59Z --status   # historical window
+```
+
+**What it measures:** hours since the last successful `publish_public_dataset.yml` run; last-5 conclusions per workflow (publish/refresh/influx); hours since the last commit touching `docs/datex/sm2_public_dataset.parquet` (the data cross-check — during the 2026-09-18 → 2026-10-05 dead period publish ran green daily while the dataset stood still, and this is the metric that catches it). Transport: `gh api` when available, unauthenticated otherwise; `--fixture` runs offline. Metric definitions live in the epic knowledge (`metric/dwh-sm2-app-pipeline-*.md`); committed readings under `sensor_readings/pipeline-health/`.
+
 ### `scripts/prepare_annotated_csv.py`
 
 **Purpose:** Convert raw CSVs to InfluxDB line-protocol-compatible annotated CSV.

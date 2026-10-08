@@ -24,6 +24,7 @@ Three GitHub Actions workflows run daily in sequence (Refresh 00:00 → InfluxIm
 | seeds | `seeds/` (mapping, mapping_indoor, mapping_sources, location_map) | workflow 1 | sensor → location translations; `history` months per source drive the rolling window |
 | InfluxDB | ephemeral per run | workflow 2 | bucket `sensor_data`; additive/nonadditive split |
 | analysis toolkit | `analysis/quasistationary_selection.py` | manual (`--parquet --out`) | duckdb+pandas+matplotlib; ČSN 73 0540 window selection; outputs tracked in git |
+| pipeline health sensor | `scripts/pipeline_health.py` | manual / on demand (DWH-SM2-APP-0006) | epic-owned Sensor (Play principle 1): GitHub API + parquet-commit cross-check → JSON reading in `sensor_readings/pipeline-health/`; `--status` one-step read-back, `--since/--until` historical windows, `--fixture` offline; metric docs in `subepic/dwh-sm2-app/metric/` |
 | public dataset + datex | `public/`, `docs/datex/` | workflow 3 | parquet 3.1 MB tracked, daily bot-committed; Chart.js + hyparquet from CDN; cs/en configs; `config.js` defines `metrics` twice |
 
 ## Documentation Coverage Map
@@ -66,7 +67,8 @@ Operator consequences: re-uploading an **older** file than previously processed 
 
 ## Health Verification (how to know it works)
 
-1. **Pipeline liveness**: GitHub → Actions → all three workflows show a successful run within the last 24 h. (There is no notification; checking is manual today.) Live proof this check matters: refresh failed six consecutive days (2026-10-03 → 10-08) unnoticed - [dwh-sm2-app-dependencies-unpinned](../issue/dwh-sm2-app-dependencies-unpinned).
+1. **Pipeline health reading (one step, DWH-SM2-APP-0006)**: `python3 scripts/pipeline_health.py --status` prints action freshness, data freshness (parquet bot-commit age — the cross-check that catches green-but-dead runs; it read `critical 449.6 h` at the height of the dead period while publish stayed green), and non-success runs in the collected window. Historical windows: `--since 2026-09-20 --until 2026-10-06 --at <ISO>`. Readings persist under `sensor_readings/pipeline-health/`; metric semantics in `subepic/dwh-sm2-app/metric/dwh-sm2-app-pipeline-*.md`. (Measurement only — there is still no notification; that is the nervous-system story.)
+2. **Pipeline liveness**: GitHub → Actions → all three workflows show a successful run within the last 24 h. (The sensor above now automates the collection of this signal; browsing the UI remains the way to see step-level detail.) Live proof this check matters: refresh failed six consecutive days (2026-10-03 → 10-08) unnoticed - [dwh-sm2-app-dependencies-unpinned](../issue/dwh-sm2-app-dependencies-unpinned).
 2. **Freshness end-to-end**: `docs/datex/sm2_public_dataset.parquet` last bot-commit is ≤ 2 days old (commit "chore: update sm2_public_dataset.parquet for Data Explorer").
 3. **Evidence freshness**: datex viewer (github.io) shows the most recent days for any section; frozen weekend readings are a known data-quality pattern (parent Epic issue `atrea-weekend-frozen-readings`).
 4. **Drive hygiene**: `sm2drive:{Vzduchotechnika,Indoor}/Latest/Upload` should stay near-empty (the refresh archive step purges it); accumulation means refresh is failing before its archive step.
