@@ -54,6 +54,16 @@ Three GitHub Actions workflows run daily in sequence (Refresh 00:00 → InfluxIm
 | Lint gate kills the data pipeline | unpinned `sqlfluff fix` exits 1 on unfixable violations; dbt build + data commit skipped (live 2026-10-03 → 10-08, six consecutive failures; mitigated 2026-10-08: lint step pins `sqlfluff==4.3.0`) | [dwh-sm2-app-dependencies-unpinned](../issue/dwh-sm2-app-dependencies-unpinned) |
 | Uncommitted work at risk | main-tree drift: Czech-labels feature + arch-doc deletion | [dwh-sm2-app-main-tree-drift](../issue/dwh-sm2-app-main-tree-drift) |
 
+## Data Guarantees (additivity - verified in code, DWH-SM2-APP-0002)
+
+The pipeline is append-only. No stage deletes or overwrites a reading:
+
+- Fact models are `union distinct` of the new merge rows and the previous facts read back from Drive `Model/` (sources `fact_indoor_temperature_original` / `fact_indoor_humidity_original`); the only row filter is `source.datetime is not null`.
+- The merge script drops rows where **both** temperature and humidity are empty (per-location "Location X nemeri" warning) but passes rows with **one** empty value; non-numeric values abort the merge (exit 6).
+- The Influx import skips rows whose double field is empty (`--skipRowOnError`).
+
+Operator consequences: re-uploading an **older** file than previously processed can never remove or overwrite already-valid readings; a file with **empty values for later dates** cannot blank out earlier valid values. Conversely, **deliberate** data removal (bad sensor, correction) has no pipeline path - it requires a manual `Model/` + rebuild operation; treat any such need as a story.
+
 ## Health Verification (how to know it works)
 
 1. **Pipeline liveness**: GitHub → Actions → all three workflows show a successful run within the last 24 h. (There is no notification; checking is manual today.) Live proof this check matters: refresh failed six consecutive days (2026-10-03 → 10-08) unnoticed - [dwh-sm2-app-dependencies-unpinned](../issue/dwh-sm2-app-dependencies-unpinned).
@@ -61,7 +71,7 @@ Three GitHub Actions workflows run daily in sequence (Refresh 00:00 → InfluxIm
 3. **Evidence freshness**: datex viewer (github.io) shows the most recent days for any section; frozen weekend readings are a known data-quality pattern (parent Epic issue `atrea-weekend-frozen-readings`).
 4. **Drive hygiene**: `sm2drive:{Vzduchotechnika,Indoor}/Latest/Upload` should stay near-empty (the refresh archive step purges it); accumulation means refresh is failing before its archive step.
 5. **Fact upload really happened**: a green refresh conclusion is not proof the data moved. In the run log, the fact upload step must NOT print `fact_indoor_temperature.csv not found, skipping upload` (rclone prints nothing on success, so a real transfer shows as a ~10 s gap instead). A skip means `Model/` was not updated and every downstream stage republishes stale data - [dwh-sm2-app-refresh-freshness-silent-skip](../issue/dwh-sm2-app-refresh-freshness-silent-skip). After re-uploading sensor exports whose latest reading does not advance the recorded max, expect the `::warning::source_status:fresher+ selected no nodes - falling back to full dbt build` annotation (the fix turning this case into a full rebuild).
-6. **Manual recovery**: every workflow has `workflow_dispatch` - re-run the failed stage from the Actions UI after fixing the cause; stages are independent beyond their Drive inputs.
+6. **Manual recovery**: every workflow has `workflow_dispatch` - re-run the failed stage from the Actions UI after fixing the cause; stages are independent beyond their Drive inputs. Worked full-pipeline recovery from stale `Model/` (verified live 2026-10-08, after the silent-skip fix): (1) re-upload the **complete** sensor export set - not a partial one - to `sm2drive:{Vzduchotechnika,Indoor}/Latest/Upload`; (2) dispatch refresh (`gh api repos/Spolecenstvi-vlastniku-Smichov-Two/dwh-sm2/actions/workflows/139023652/dispatches -f ref=main`) - on a content-only re-upload expect the `::warning::...falling back to full dbt build` annotation and a red-but-green selective step (by design, v0.0004.1.0002.00); (3) verify the fact upload per item 5; (4) dispatch InfluxImportNormalize (workflow id 177614384); (5) dispatch Publish Public Dataset (workflow id 184554441); (6) confirm the datex bot commit (item 2) is newer than the dispatch timestamp.
 
 ## Operating Notes
 

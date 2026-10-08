@@ -33,9 +33,15 @@ Capture [dwh-sm2-app-fallback-annotation-ux](../idea/dwh-sm2-app-fallback-annota
 
 ### R4: No duplicate captures
 
-Do not re-capture what existing knowledge already covers: pipeline chaining and failure notification are already [dwh-sm2-app-pipeline-unsequenced](../issue/dwh-sm2-app-pipeline-unsequenced); data-additivity semantics live in the DWH-SM2-APP-0002 story notes.
+Do not re-capture what existing knowledge already covers: pipeline chaining and failure notification are already [dwh-sm2-app-pipeline-unsequenced](../issue/dwh-sm2-app-pipeline-unsequenced).
 
 **Acceptance Criterion:** The three captures above are the only new knowledge files; each neighbouring overlap is referenced, not duplicated.
+
+### R5: Promote transient story-0002 knowledge into permanent knowledge files
+
+The knowledge-audit (2026-10-08, Human question "what have we learned that is not yet documented") found four items living only in DWH-SM2-APP-0002 story notes and session memory: (a) the append-only/additive data guarantee, (b) the worked full-pipeline recovery sequence with dispatch commands, (c) fact windowing driven by `seeds/mapping_sources.csv`, (d) the deliberate-removal-has-no-path consequence. Promote them: Data Guarantees section + expanded recovery item 6 in [dwh-sm2-app-runbook](../implementation/dwh-sm2-app-runbook); Rules 5-6 in [dwh-sm2-app-pipeline-blueprint](../ontology/dwh-sm2-app-pipeline-blueprint).
+
+**Acceptance Criterion:** Runbook carries a Data Guarantees section and the six-step recovery sequence with workflow ids; blueprint Rules cover additivity and config-driven windowing; neither duplicates the other (runbook = operator consequences, blueprint = invariant).
 
 ## Notes
 

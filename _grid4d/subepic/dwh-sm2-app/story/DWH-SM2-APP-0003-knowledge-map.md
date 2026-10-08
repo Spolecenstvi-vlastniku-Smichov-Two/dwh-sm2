@@ -9,6 +9,8 @@
 ## Updated
 
 - [dwh-sm2-app-refresh-freshness-silent-skip](dwh-sm2-app-refresh-freshness-silent-skip) (Entry)
+- [dwh-sm2-app-pipeline-blueprint](dwh-sm2-app-pipeline-blueprint) (Rule)
+- [dwh-sm2-app-runbook](dwh-sm2-app-runbook) (Entry)
 
 ## Created
 
