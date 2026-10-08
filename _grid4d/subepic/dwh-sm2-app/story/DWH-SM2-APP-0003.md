@@ -43,6 +43,18 @@ The knowledge-audit (2026-10-08, Human question "what have we learned that is no
 
 **Acceptance Criterion:** Runbook carries a Data Guarantees section and the six-step recovery sequence with workflow ids; blueprint Rules cover additivity and config-driven windowing; neither duplicates the other (runbook = operator consequences, blueprint = invariant).
 
+### R6: Capture the Atrea export-lag diagnostic trap
+
+The post-recovery completeness check found September 2026 at 26 locations instead of 38 — the 12 Atrea ventilation locations whose exports lag months behind (Human confirmed the September export has not arrived). Capture [dwh-sm2-app-atrea-export-lag](../issue/dwh-sm2-app-atrea-export-lag) so the pattern is not mistaken for an incident: location names, the months_to_process wall-time connection, and the recovery path via the freshness guard when the backfill lands.
+
+**Acceptance Criterion:** Issue file exists with the Atrea location names, the influx month-set wall-time symptom, and the content-only backfill recovery path.
+
+### R7: Capture the plug-and-play evolucean integration idea
+
+Capture [dwh-sm2-app-plug-and-play-evolucean-integration](../idea/dwh-sm2-app-plug-and-play-evolucean-integration): the Human direction to run dwh-sm2 as a plug-and-play evolucean Epic, the plugged-vs-play gap table (sensor, nervous system, shaping read-back, prune/sustain), the finding that `plug-and-play-epic-integration` is referenced in the shaping blueprint but unauthored, and the phased proposal (audit story first).
+
+**Acceptance Criterion:** Idea file exists with the gap table, the unauthored-blueprint finding, and the phased proposal.
+
 ## Notes
 
 Created: 2026-10-08
