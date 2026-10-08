@@ -18,3 +18,4 @@
 - [DWH-SM2-APP-0003-knowledge-map](DWH-SM2-APP-0003-knowledge-map) (Entry)
 - [dwh-sm2-app-actions-log-echo-pollution](dwh-sm2-app-actions-log-echo-pollution) (Entry)
 - [dwh-sm2-app-fallback-annotation-ux](dwh-sm2-app-fallback-annotation-ux) (Entry)
+- [dwh-sm2-app-plug-and-play-evolucean-integration](dwh-sm2-app-plug-and-play-evolucean-integration) (Entry)

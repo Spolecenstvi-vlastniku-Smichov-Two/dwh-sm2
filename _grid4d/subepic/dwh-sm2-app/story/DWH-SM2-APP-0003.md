@@ -47,5 +47,7 @@ The knowledge-audit (2026-10-08, Human question "what have we learned that is no
 
 Created: 2026-10-08
 
-Rolling capture story: stays open as the dwh-sm2-app operational journal while the Human re-encounters issues/ideas in practice; complete when the batch is captured and committed. Language: English per ahabase convention.
+Scope ruling (Human, 2026-10-08): this story is an **issues-and-ideas journal only** — log captures here, do not grow it into audit or implementation work; those get their own stories. R5's runbook/blueprint promotion (committed before the ruling) stays as the one delivered exception. Complete when the capture batch is committed.
+
+Language: English per ahabase convention.
 
