@@ -77,7 +77,17 @@ All problems, bugs, and ideas encountered during story logged to `_grid4d/issue/
 
 **Acceptance Criterion:** No silent failures - every issue either fixed or documented.
 
-[dwh-sm2-app-epic-sensor-readings-path-missing](../issue/dwh-sm2-app-epic-sensor-readings-path-missing) (open, cross-epic). In-story bug fixed during development: historical-window query filter was not URL-encoded (GitHub ignored the raw `>=` range and returned current runs — caught by comparing window output to live output before accepting the reading).
+Issues logged (lessons-learned sweep, 2026-10-08):
+
+- [dwh-sm2-app-epic-sensor-readings-path-missing](../issue/dwh-sm2-app-epic-sensor-readings-path-missing) (open, fix belongs to EVOLUCEAN) - both CLI reading paths are evolucean DNA; solution direction: declarative epic-pluggable sensor path.
+- [dwh-sm2-app-resume-binds-calling-tree](../issue/dwh-sm2-app-resume-binds-calling-tree) (open, fix belongs to EVOLUCEAN) - `resume` outside the worktree bound the session to the epic main tree; stop-hook "Story file not found" and no KM; heal = re-resume from worktree root.
+- [dwh-sm2-app-identity-declaration-vs-tooling-divergence](../issue/dwh-sm2-app-identity-declaration-vs-tooling-divergence) (open, fix belongs to EVOLUCEAN) - identity concept says the def-doc is the only registration, but doctor iterates subepics from the legacy yaml; canonically registered subepics get zero validation.
+- [dwh-sm2-app-subepic-def-doc-location-undocumented](../issue/dwh-sm2-app-subepic-def-doc-location-undocumented) (open, fix belongs to EVOLUCEAN) - the def-doc path convention (`subepic/<name>/story/<SUBEPIC>.md`) exists only in code; this analysis nearly logged a false "registration missing" issue because of it.
+- [dwh-sm2-app-subepic-identity-file-stale](../issue/dwh-sm2-app-subepic-identity-file-stale) (open, dwh-sm2-app-side fix) - Structure table and "One story active" line drifted during stories 0002-0006.
+
+Idea logged: [dwh-sm2-app-sensor-workflow-integration](../idea/dwh-sm2-app-sensor-workflow-integration) (candidate) - publish workflow appends the daily reading itself; still Sensor, no notification.
+
+In-story bug fixed during development: historical-window query filter was not URL-encoded (GitHub ignored the raw `>=` range and returned current runs — caught by comparing window output to live output before accepting the reading).
 
 ## Acceptance Criteria
 
@@ -97,3 +107,9 @@ Created: 2026-10-08. Design agreed with Human 2026-10-08 (Sensor before nervous 
 Parked after minting: executed after EVOLUCEAN-0474 (blueprint amendment) per Human's ordering choice.
 
 Next story (nervous system, per the blueprint's principle order): notification/chaining on top of these readings; also picks up the deferred guard sub-signal and, if the EVOLUCEAN pluggable-sensor path lands, migrates readings into the shared store.
+
+## References
+
+- [ontology-plug-and-play-epic-integration-blueprint](ontology-plug-and-play-epic-integration-blueprint) - the Play principles this story implements (Sensor first)
+- [evolucean-story-identity-pattern](evolucean-story-identity-pattern) - identity resolution backing the story's subepic placement
+- [dwh-sm2-app-pipeline-data-freshness](../metric/dwh-sm2-app-pipeline-data-freshness) / [dwh-sm2-app-pipeline-action-freshness](../metric/dwh-sm2-app-pipeline-action-freshness) / [dwh-sm2-app-pipeline-run-outcomes](../metric/dwh-sm2-app-pipeline-run-outcomes) - metric definitions introduced by this story
