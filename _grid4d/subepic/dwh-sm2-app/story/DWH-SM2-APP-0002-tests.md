@@ -67,10 +67,10 @@ tests:
 
 | Test | Result | Date |
 |------|--------|------|
-| R1_guard_in_workflow | | |
-| R2_guard_day_type_matrix | | |
-| R3_issue_captured | | |
-| R4_runbook_health_covers_silent_skip | | |
+| R1_guard_in_workflow | ✅ | 2026-10-08 |
+| R2_guard_day_type_matrix | ✅ | 2026-10-08 |
+| R3_issue_captured | ✅ | 2026-10-08 |
+| R4_runbook_health_covers_silent_skip | ✅ | 2026-10-08 |
 
 ## Related
 
