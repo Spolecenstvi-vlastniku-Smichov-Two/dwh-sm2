@@ -4,7 +4,7 @@
 
 **Type:** default
 **Epic:** [DWH-SM2-APP](../DWH-SM2-APP)
-**Status:** in_progress
+**Status:** completed
 **Blueprint:** [implementation-story-blueprint](implementation-story-blueprint)
 
 ## Goal
