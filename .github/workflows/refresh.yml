@@ -88,7 +88,10 @@ jobs:
 
       - name: Lint with sqlfluff
         run: |
-          pip install sqlfluff
+          # Pinned exact: unpinned install broke the pipeline 2026-10-03 (4.4.0
+          # reported 3 unfixable violations -> sqlfluff fix exit 1 -> data steps
+          # skipped). Full dependency manifest: issue dwh-sm2-app-dependencies-unpinned.
+          pip install sqlfluff==4.3.0
           sqlfluff fix --dialect duckdb -v models/
           sqlfluff lint --dialect duckdb -v models/
     

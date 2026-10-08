@@ -51,7 +51,7 @@ Three GitHub Actions workflows run daily in sequence (Refresh 00:00 → InfluxIm
 | Repo bloat / confusing docs | 3 dbt-docs generations, datex.old, tmp_docs, .gitignore `!docs/**` leak | [dwh-sm2-app-stale-artifacts-tracked](../issue/dwh-sm2-app-stale-artifacts-tracked) |
 | dbt behavior surprises | dead `*_original` configs, no-op `dbt deps`, sqlfluff dialect mismatch, analysis-paths collision | [dwh-sm2-app-dbt-config-dead-entries](../issue/dwh-sm2-app-dbt-config-dead-entries) |
 | Environment drift | no dependency manifest; local dbt 1.7 vs CI 1.12.5 vs docs 1.9.1 | [dwh-sm2-app-dependencies-unpinned](../issue/dwh-sm2-app-dependencies-unpinned) |
-| Lint gate kills the data pipeline | unpinned `sqlfluff fix` exits 1 on unfixable violations; dbt build + data commit skipped (live 2026-10-03 → 10-08, six consecutive failures) | [dwh-sm2-app-dependencies-unpinned](../issue/dwh-sm2-app-dependencies-unpinned) |
+| Lint gate kills the data pipeline | unpinned `sqlfluff fix` exits 1 on unfixable violations; dbt build + data commit skipped (live 2026-10-03 → 10-08, six consecutive failures; mitigated 2026-10-08: lint step pins `sqlfluff==4.3.0`) | [dwh-sm2-app-dependencies-unpinned](../issue/dwh-sm2-app-dependencies-unpinned) |
 | Uncommitted work at risk | main-tree drift: Czech-labels feature + arch-doc deletion | [dwh-sm2-app-main-tree-drift](../issue/dwh-sm2-app-main-tree-drift) |
 
 ## Health Verification (how to know it works)

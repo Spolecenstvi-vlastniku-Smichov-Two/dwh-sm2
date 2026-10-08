@@ -55,9 +55,15 @@ The audit's static findings are confronted with the live repository: current Git
 
 **Acceptance Criterion:** at least one live failing run is diagnosed (failing step, why it fails, blast radius on downstream stages) from measured evidence, and the relevant issue documents and runbook carry the occurrence.
 
+### R8: Critical hotfix - unblock the refresh pipeline
+
+The live failure R7 diagnosed (unpinned sqlfluff 4.4.0 breaking the lint gate, refresh dead since 2026-10-03) is fixed in-story on Human direction: the lint step pins the exact last-known-good version, verified locally against the models before commit.
+
+**Acceptance Criterion:** refresh.yml pins `sqlfluff==4.3.0` (exact, no floating install left); the pinned version passes `sqlfluff fix` and `sqlfluff lint` over `models/` locally (exit 0, zero violations, no file changes); the full dependency-manifest work stays open in [dwh-sm2-app-dependencies-unpinned](../issue/dwh-sm2-app-dependencies-unpinned).
+
 ## Notes
 
-Created: 2026-10-08. Human assignment (2026-10-08): "celkový audit celé aplikace a její dokumentace - ontologie i implementace". R7 added mid-story at Human request: analyze live GitHub Actions failures, not just the static tree. The application is the entire GitHub workflow including all its components (datex is only a viewer). The uncommitted main-tree drift (deleted ARCHITECTURE drafts, regenerated analysis outputs, touched DWH-SM2-0003 knowledge map) is Human-deferred to a later story - this audit documents its state as a finding.
+Created: 2026-10-08. Human assignment (2026-10-08): "celkový audit celé aplikace a její dokumentace - ontologie i implementace". R7 added mid-story at Human request: analyze live GitHub Actions failures, not just the static tree. R8 added mid-story on Human direction: "můžeme toto issues v rámci této story rovnou opravit? je to kritické issue" - the audit-measures-fixes-follow-up rule gets one Human-directed exception for the live-dead pipeline. The application is the entire GitHub workflow including all its components (datex is only a viewer). The uncommitted main-tree drift (deleted ARCHITECTURE drafts, regenerated analysis outputs, touched DWH-SM2-0003 knowledge map) is Human-deferred to a later story - this audit documents its state as a finding.
 
 ## Related
 

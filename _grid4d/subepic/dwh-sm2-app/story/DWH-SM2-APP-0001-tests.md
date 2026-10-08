@@ -81,6 +81,13 @@ tests:
       grep -q 'sqlfluff fix' _grid4d/subepic/dwh-sm2-app/implementation/dwh-sm2-app-runbook.md
     expect:
       exit_code: 0
+  - name: R8_sqlfluff_pinned_exact
+    description: refresh workflow pins the exact last-known-good sqlfluff version, no floating install left
+    command: |
+      grep -q 'sqlfluff==4.3.0' .github/workflows/refresh.yml &&
+      ! grep -q 'pip install sqlfluff$' .github/workflows/refresh.yml
+    expect:
+      exit_code: 0
 ```
 
 ## Execution
@@ -94,6 +101,7 @@ tests:
 | R5_runbook_founded | ✅ | 2026-10-08 |
 | R6_findings_persist_as_issues | ✅ | 2026-10-08 |
 | R7_live_failure_analyzed | ✅ | 2026-10-08 |
+| R8_sqlfluff_pinned_exact | ✅ | 2026-10-08 |
 
 ## Related
 
